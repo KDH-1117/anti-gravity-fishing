@@ -48,6 +48,7 @@ export default function Admin() {
   // 1. 제한 시간 및 비용
   const [timeLimit, setTimeLimit] = useState(settings?.time_limit || 60);
   const [costText, setCostText] = useState(settings?.cost_text || '1 ESTA');
+  const [maxEnhanceAttempts, setMaxEnhanceAttempts] = useState(settings?.max_enhance_attempts ?? 10);
   const [isSavingTimeCost, setIsSavingTimeCost] = useState(false);
   const [timeCostSuccess, setTimeCostSuccess] = useState(false);
 
@@ -100,6 +101,7 @@ export default function Admin() {
     if (settings) {
       setTimeLimit(settings.time_limit || 60);
       setCostText(settings.cost_text || '1 ESTA');
+      setMaxEnhanceAttempts(settings.max_enhance_attempts ?? 10);
       setAuthPassword(settings.auth_password || '12345678');
       setAdminPassword(settings.admin_password || '12345678');
 
@@ -290,7 +292,8 @@ export default function Admin() {
     try {
       await updateBoothSettings({
         time_limit: limit,
-        cost_text: cost
+        cost_text: cost,
+        max_enhance_attempts: Math.max(1, Number(maxEnhanceAttempts) || 10)
       });
 
       sound.playSuccess();
@@ -425,6 +428,7 @@ export default function Admin() {
       const newConfig = {
         time_limit: Number(timeLimit) || 60,
         cost_text: costText.trim() || '1 ESTA',
+        max_enhance_attempts: Math.max(1, Number(maxEnhanceAttempts) || 10),
         stage_probabilities: stageProbs,
         prizes: prizes,
         safe_enhance: {
@@ -1580,14 +1584,14 @@ export default function Admin() {
         </button>
       </div>
 
-      {/* ---------------- 4: 타이머 및 비용 설정 (개별 저장 버튼 완비) ---------------- */}
+      {/* ---------------- 4: 제한 시간, 비용 및 회전율 설정 (개별 저장 버튼 완비) ---------------- */}
       <div className="glass-panel" style={{ padding: '24px 20px', marginBottom: '20px' }}>
         <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Clock className="w-4 h-4 text-cyan-400" />
-          <span>제한 시간 및 비용 설정</span>
+          <span>제한 시간, 비용 및 회전율 설정</span>
         </h3>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
           <div>
             <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '6px' }}>
               제한 시간 (초)
@@ -1610,6 +1614,24 @@ export default function Admin() {
               value={costText}
               onChange={(e) => setCostText(e.target.value)}
             />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '6px' }}>
+              최대 강화 시도 횟수 (회전율 제한)
+            </label>
+            <input
+              type="number"
+              className="glass-input"
+              value={maxEnhanceAttempts}
+              onChange={(e) => setMaxEnhanceAttempts(Number(e.target.value))}
+              min={1}
+              max={50}
+              placeholder="10"
+            />
+            <span style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.5)', marginTop: '4px', display: 'block' }}>
+              참가자 1인당 총 강화 횟수 제한 (기본 10회)
+            </span>
           </div>
         </div>
 

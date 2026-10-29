@@ -55,6 +55,7 @@ export const DEFAULT_SETTINGS = {
   stage_probabilities: DEFAULT_STAGE_PROBABILITIES,
   prizes: DEFAULT_PRIZES,
   safe_enhance: DEFAULT_SAFE_ENHANCE,
+  max_enhance_attempts: 10,
   auth_password: '12345678',
   admin_password: '12345678'
 };
@@ -118,7 +119,8 @@ export async function getSettings() {
           ...data,
           stage_probabilities: data.stage_probabilities || DEFAULT_STAGE_PROBABILITIES,
           prizes: data.prizes || DEFAULT_PRIZES,
-          safe_enhance: data.safe_enhance || DEFAULT_SAFE_ENHANCE
+          safe_enhance: data.safe_enhance || DEFAULT_SAFE_ENHANCE,
+          max_enhance_attempts: Number(data.max_enhance_attempts) || 10
         };
         localStorage.setItem(LOCAL_STORAGE_SETTINGS_KEY, JSON.stringify(merged));
         return merged;
@@ -137,7 +139,8 @@ export async function getSettings() {
         ...parsed,
         stage_probabilities: parsed.stage_probabilities || DEFAULT_STAGE_PROBABILITIES,
         prizes: parsed.prizes || DEFAULT_PRIZES,
-        safe_enhance: parsed.safe_enhance || DEFAULT_SAFE_ENHANCE
+        safe_enhance: parsed.safe_enhance || DEFAULT_SAFE_ENHANCE,
+        max_enhance_attempts: Number(parsed.max_enhance_attempts) || 10
       };
     }
   } catch (e) {

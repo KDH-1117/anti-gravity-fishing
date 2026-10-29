@@ -43,7 +43,6 @@ export default function MainGame() {
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [enhanceResult, setEnhanceResult] = useState(null);
   const [enhanceCount, setEnhanceCount] = useState(0);
-  const [enhanceMode, setEnhanceMode] = useState('NORMAL'); // 'NORMAL' | 'SAFE'
   const [safeEnhanceUsed, setSafeEnhanceUsed] = useState(0);
 
   // 타이머 상태
@@ -155,16 +154,24 @@ export default function MainGame() {
   const safeMaxCount = Number(safeConfig?.max_count) || 5;
   const safeCost = safeConfig?.cost_text || '2 ESTA';
   const safeRemaining = Math.max(0, safeMaxCount - safeEnhanceUsed);
-  const isSafeMode = enhanceMode === 'SAFE';
+  const maxAttempts = Number(settings?.max_enhance_attempts) || 10;
+  const isAttemptLimitReached = enhanceCount >= maxAttempts;
 
-  // 강화 실행 (1단계에서는 절대 하락 불가, 안전 강화 모드 시 하락 0% 방어)
-  const handleEnhance = () => {
+  // 강화 실행 (일반 강화: 'NORMAL', 안전 강화: 'SAFE')
+  const handleEnhance = (type = 'NORMAL') => {
     if (rodLevel >= 5 || isEnhancing) return;
 
-    if (isSafeMode && safeRemaining <= 0) {
+    if (enhanceCount >= maxAttempts) {
       sound.playDowngrade();
-      alert(`안전 강화는 판당 최대 ${safeMaxCount}회까지만 사용 가능합니다.`);
-      setEnhanceMode('NORMAL');
+      alert(`최대 강화 시도 횟수(${maxAttempts}회)를 모두 사용했습니다. 낚시를 시작해주세요!`);
+      return;
+    }
+
+    const isSafe = type === 'SAFE';
+
+    if (isSafe && safeRemaining <= 0) {
+      sound.playDowngrade();
+      alert(`안전 강화는 판당 최대 ${safeMaxCount}회까지만 사용 가능합니다. (잔여 0회)`);
       return;
     }
 
@@ -175,7 +182,7 @@ export default function MainGame() {
     setTimeout(() => {
       let result = 'KEEP';
 
-      if (isSafeMode) {
+      if (isSafe) {
         // [안전 강화]: 하락 절대 없음 (하락 확률 0%)! 오직 성공 또는 유지!
         const stageSafeProb = safeConfig?.probabilities?.[rodLevel] || DEFAULT_SAFE_ENHANCE.probabilities[rodLevel];
         const pSuccess = Number(stageSafeProb?.hidden_success ?? 45);
@@ -288,7 +295,6 @@ export default function MainGame() {
     setEnhanceResult(null);
     setEnhanceCount(0);
     setSafeEnhanceUsed(0);
-    setEnhanceMode('NORMAL');
     setTimeLeft(settings?.time_limit || 60);
     setIsTimerRunning(false);
     setScoreInput('');
@@ -466,83 +472,36 @@ export default function MainGame() {
         </div>
       )}
 
-      {/* ---------------- 3단계: 강화 페이즈 (일반 강화 vs 🛡️ 안전 강화) ---------------- */}
+      {/* ---------------- 3단계: 강화 페이즈 ---------------- */}
       {step === 3 && (
         <div style={{ marginTop: '10px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
             <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--aqua-cyan)' }}>
               {nickname}
             </span>
-            <span style={{ fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.6)' }}>
-              강화 {enhanceCount}회
+            <span
+              style={{
+                fontSize: '0.85rem',
+                color: isAttemptLimitReached ? '#f87171' : 'rgba(255, 255, 255, 0.7)',
+                fontWeight: isAttemptLimitReached ? 700 : 500
+              }}
+            >
+              강화 {enhanceCount}/{maxAttempts}회
             </span>
           </div>
 
-          {/* 강화 모드 선택: 일반 강화 vs 🛡️ 안전 강화 */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '14px' }}>
-            <button
-              type="button"
-              onClick={() => { sound.playClick(); setEnhanceMode('NORMAL'); }}
-              className={`btn ${!isSafeMode ? 'btn-primary' : 'btn-glass'}`}
-              style={{
-                padding: '10px 12px',
-                fontSize: '0.88rem',
-                fontWeight: 800,
-                borderRadius: '10px'
-              }}
-            >
-              일반 강화
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                if (safeRemaining <= 0) {
-                  sound.playDowngrade();
-                  alert(`안전 강화는 판당 최대 ${safeMaxCount}회까지만 사용 가능합니다. (횟수 소진)`);
-                  return;
-                }
-                sound.playClick();
-                setEnhanceMode('SAFE');
-              }}
-              className={`btn ${isSafeMode ? 'btn-cyan' : 'btn-glass'}`}
-              style={{
-                padding: '10px 12px',
-                fontSize: '0.88rem',
-                fontWeight: 800,
-                borderRadius: '10px',
-                opacity: safeRemaining <= 0 ? 0.45 : 1,
-                border: isSafeMode ? '1.5px solid var(--aqua-cyan)' : undefined,
-                boxShadow: isSafeMode ? '0 0 16px rgba(0, 242, 254, 0.4)' : undefined,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px'
-              }}
-            >
-              <Shield className="w-4 h-4 text-cyan-300" />
-              <span>🛡️ 안전 강화 ({safeRemaining}/{safeMaxCount})</span>
-            </button>
-          </div>
-
+          {/* 중앙 낚싯대 단계 표시 박스 */}
           <div
             className="glass-panel"
             style={{
               padding: '28px 20px 22px',
               textAlign: 'center',
               marginBottom: '16px',
-              border: `2px solid ${isSafeMode ? 'var(--aqua-cyan)' : currentRod.color}`,
-              boxShadow: isSafeMode ? '0 0 25px rgba(0, 242, 254, 0.35)' : `0 0 25px ${currentRod.color}40`,
+              border: `2px solid ${currentRod.color}`,
+              boxShadow: `0 0 25px ${currentRod.color}40`,
               transition: 'all 0.3s ease'
             }}
           >
-            {isSafeMode && (
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 12px', borderRadius: '12px', background: 'rgba(0, 242, 254, 0.15)', color: 'var(--aqua-cyan)', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', border: '1px solid rgba(0, 242, 254, 0.35)' }}>
-                <Shield className="w-3.5 h-3.5" />
-                <span>하락 방지 모드 (하락 0% 고정)</span>
-              </div>
-            )}
-
             <div
               style={{
                 fontSize: '2.6rem',
@@ -554,7 +513,7 @@ export default function MainGame() {
               {currentRod.name}
             </div>
 
-            {/* [요청사항 해결]: 높이를 46px로 고정하여 알림이 뜨고 사라질 때 아래 버튼들이 덜컹거리며 위아래로 점핑하지 않음! */}
+            {/* 고정 높이 46px로 결과 알림이 뜨고 사라져도 아래 요소 덜컹거림 방지 */}
             <div
               style={{
                 height: '46px',
@@ -611,92 +570,189 @@ export default function MainGame() {
             </div>
           </div>
 
-          {/* 비용 및 명목상 확률 */}
-          {(() => {
-            let dispSuccess = 50;
-            let dispKeep = 30;
-            let dispDown = 20;
-            let costLabel = settings?.cost_text || '1 ESTA';
-
-            if (isSafeMode) {
-              const safeStageProb = safeConfig?.probabilities?.[rodLevel] || DEFAULT_SAFE_ENHANCE.probabilities[rodLevel];
-              dispSuccess = safeStageProb?.display_success ?? 60;
-              dispKeep = 100 - dispSuccess;
-              dispDown = 0; // 안전 강화는 하락 0%!
-              costLabel = safeCost;
-            } else {
-              const currentStageProb = getStageProbabilities(rodLevel);
-              dispSuccess = currentStageProb.display?.success ?? 50;
-              dispKeep = currentStageProb.display?.keep ?? 30;
-              dispDown = rodLevel === 1 ? 0 : (currentStageProb.display?.downgrade ?? 20);
-              costLabel = settings?.cost_text || '1 ESTA';
-            }
-
-            return (
+          {/* 비용 및 명목상 확률 표시 창 (최대 단계 도달 시 비용/확률 다 지우고 최대 강화 문구만 노출) */}
+          {rodLevel >= 5 ? (
+            <div
+              className="glass-panel"
+              style={{
+                padding: '18px 20px',
+                marginBottom: '16px',
+                textAlign: 'center',
+                background: 'rgba(250, 204, 21, 0.08)',
+                border: '1px solid rgba(250, 204, 21, 0.35)',
+                boxShadow: '0 0 20px rgba(250, 204, 21, 0.15)'
+              }}
+            >
+              <div style={{ fontSize: '1.15rem', fontWeight: 900, color: '#facc15', letterSpacing: '0.02em' }}>
+                👑 최대 강화 단계입니다
+              </div>
+            </div>
+          ) : (
+            <div
+              className="glass-panel"
+              style={{
+                padding: '14px 16px',
+                marginBottom: '16px',
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '12px'
+              }}
+            >
+              {/* 일반 강화 정보 */}
               <div
-                className="glass-panel"
                 style={{
-                  padding: '14px 18px',
-                  marginBottom: '16px',
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  padding: '10px 12px',
+                  borderRadius: '10px',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
                   display: 'flex',
-                  alignItems: 'center',
+                  flexDirection: 'column',
                   justifyContent: 'space-between',
-                  fontSize: '0.85rem'
+                  gap: '6px'
                 }}
               >
-                <div>
-                  <span style={{ color: 'rgba(255, 255, 255, 0.6)' }}>비용: </span>
-                  <strong style={{ color: 'var(--aqua-cyan)', fontSize: '1rem' }}>{costLabel}</strong>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <strong style={{ color: 'var(--aqua-cyan)', fontSize: '0.84rem' }}>⚡ 일반 강화</strong>
+                  <span style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: '0.78rem' }}>
+                    비용: <b style={{ color: '#ffffff' }}>{settings?.cost_text || '1 ESTA'}</b>
+                  </span>
                 </div>
-
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <span>성공 <strong style={{ color: '#6ee7b7' }}>{dispSuccess}%</strong></span>
-                  <span>유지 <strong style={{ color: '#fde68a' }}>{dispKeep}%</strong></span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: 'rgba(255, 255, 255, 0.85)' }}>
+                  <span>성공 <b style={{ color: '#6ee7b7' }}>{getStageProbabilities(rodLevel).display?.success ?? 50}%</b></span>
+                  <span>유지 <b style={{ color: '#fde68a' }}>{getStageProbabilities(rodLevel).display?.keep ?? 30}%</b></span>
                   <span>
-                    하락{' '}
-                    <strong style={{ color: dispDown === 0 ? '#6ee7b7' : '#fca5a5' }}>
-                      {dispDown === 0 ? '0% (방어)' : `${dispDown}%`}
-                    </strong>
+                    하락 <b style={{ color: rodLevel === 1 ? '#6ee7b7' : '#fca5a5' }}>
+                      {rodLevel === 1 ? '0%' : `${getStageProbabilities(rodLevel).display?.downgrade ?? 20}%`}
+                    </b>
                   </span>
                 </div>
               </div>
-            );
-          })()}
 
+              {/* 안전 강화 정보 */}
+              <div
+                style={{
+                  background: 'rgba(0, 242, 254, 0.05)',
+                  padding: '10px 12px',
+                  borderRadius: '10px',
+                  border: '1px solid rgba(0, 242, 254, 0.25)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  gap: '6px'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <strong style={{ color: '#38bdf8', fontSize: '0.84rem' }}>🛡️ 안전 강화</strong>
+                  <span style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: '0.78rem' }}>
+                    비용: <b style={{ color: '#ffffff' }}>{safeCost}</b>
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: 'rgba(255, 255, 255, 0.85)' }}>
+                  <span>성공 <b style={{ color: '#6ee7b7' }}>{safeConfig?.probabilities?.[rodLevel]?.display_success ?? 60}%</b></span>
+                  <span>유지 <b style={{ color: '#fde68a' }}>{100 - (safeConfig?.probabilities?.[rodLevel]?.display_success ?? 60)}%</b></span>
+                  <span>하락 <b style={{ color: '#6ee7b7' }}>0%</b></span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 버튼 영역: 일반 강화 & 안전 강화 나란히 배치 */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              {/* 1. 일반 강화 버튼 */}
+              <button
+                type="button"
+                onClick={() => handleEnhance('NORMAL')}
+                disabled={rodLevel >= 5 || isEnhancing || isAttemptLimitReached}
+                className="btn btn-primary"
+                style={{
+                  padding: '14px 8px',
+                  fontSize: '0.95rem',
+                  fontWeight: 800,
+                  borderRadius: '14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '3px',
+                  opacity: rodLevel >= 5 || isAttemptLimitReached ? 0.45 : 1,
+                  cursor: rodLevel >= 5 || isAttemptLimitReached ? 'not-allowed' : 'pointer'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Zap className={`w-4 h-4 ${isEnhancing ? 'animate-spin' : ''}`} />
+                  <span>강화하기</span>
+                </div>
+                <span style={{ fontSize: '0.75rem', fontWeight: 600, opacity: 0.85 }}>
+                  ({settings?.cost_text || '1 ESTA'})
+                </span>
+              </button>
+
+              {/* 2. 안전 강화하기 버튼 (잔량 (5/5) 표시) */}
+              <button
+                type="button"
+                onClick={() => handleEnhance('SAFE')}
+                disabled={rodLevel >= 5 || isEnhancing || safeRemaining <= 0 || isAttemptLimitReached}
+                className="btn btn-cyan"
+                style={{
+                  padding: '14px 8px',
+                  fontSize: '0.95rem',
+                  fontWeight: 800,
+                  borderRadius: '14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '3px',
+                  opacity: rodLevel >= 5 || safeRemaining <= 0 || isAttemptLimitReached ? 0.45 : 1,
+                  cursor: rodLevel >= 5 || safeRemaining <= 0 || isAttemptLimitReached ? 'not-allowed' : 'pointer',
+                  boxShadow: safeRemaining > 0 && rodLevel < 5 && !isAttemptLimitReached ? '0 0 16px rgba(0, 242, 254, 0.3)' : undefined
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Shield className={`w-4 h-4 ${isEnhancing ? 'animate-spin' : ''}`} />
+                  <span>안전 강화하기</span>
+                </div>
+                <span style={{ fontSize: '0.75rem', fontWeight: 600, opacity: 0.85 }}>
+                  ({safeCost}) ({safeRemaining}/{safeMaxCount})
+                </span>
+              </button>
+            </div>
+
+            {/* 시도 횟수 초과 안내 */}
+            {isAttemptLimitReached && rodLevel < 5 && (
+              <div
+                style={{
+                  padding: '9px 12px',
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  borderRadius: '10px',
+                  color: '#fca5a5',
+                  fontSize: '0.82rem',
+                  textAlign: 'center',
+                  fontWeight: 700
+                }}
+              >
+                ⚠️ 최대 강화 시도 횟수({maxAttempts}회)를 모두 사용했습니다. 낚시를 시작해주세요!
+              </div>
+            )}
+
+            {/* 낚시 시작 버튼 */}
             <button
-              onClick={handleEnhance}
-              disabled={rodLevel >= 5 || isEnhancing}
-              className={`btn ${isSafeMode ? 'btn-cyan' : 'btn-primary'}`}
+              type="button"
+              onClick={handleStartFishing}
+              disabled={isEnhancing}
+              className={`btn ${rodLevel >= 5 || isAttemptLimitReached ? 'btn-primary' : 'btn-glass'}`}
               style={{
                 width: '100%',
                 padding: '15px',
                 fontSize: '1.05rem',
-                opacity: rodLevel >= 5 ? 0.6 : 1,
-                boxShadow: isSafeMode ? '0 0 20px rgba(0, 242, 254, 0.35)' : undefined
+                fontWeight: 800,
+                borderRadius: '14px',
+                borderColor: 'var(--aqua-cyan)',
+                marginTop: '2px',
+                boxShadow: rodLevel >= 5 ? '0 0 25px rgba(250, 204, 21, 0.4)' : undefined
               }}
-            >
-              {isSafeMode ? (
-                <Shield className={`w-5 h-5 ${isEnhancing ? 'animate-spin' : ''}`} />
-              ) : (
-                <Zap className={`w-5 h-5 ${isEnhancing ? 'animate-spin' : ''}`} />
-              )}
-              <span>
-                {isEnhancing
-                  ? '강화 중...'
-                  : rodLevel >= 5
-                  ? '최대 단계 달성'
-                  : isSafeMode
-                  ? `🛡️ 안전 강화하기 (${safeCost})`
-                  : `강화하기 (${settings?.cost_text || '1 ESTA'})`}
-              </span>
-            </button>
-
-            <button
-              onClick={handleStartFishing}
-              disabled={isEnhancing}
-              className="btn btn-glass"
-              style={{ width: '100%', padding: '14px', fontSize: '1rem', borderColor: 'var(--aqua-cyan)' }}
             >
               <Fish className="w-5 h-5 text-cyan-300" />
               <span>낚시 시작</span>

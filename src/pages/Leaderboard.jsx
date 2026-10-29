@@ -117,33 +117,10 @@ export default function Leaderboard() {
                 boxShadow: '0 12px 35px rgba(245, 158, 11, 0.35)',
                 display: 'flex',
                 flexDirection: 'column',
-                justifyContent: 'space-between',
-                position: 'relative'
+                justifyContent: 'space-between'
               }}
             >
               <div>
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '-16px',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    background: 'linear-gradient(135deg, #fbbf24 0%, #d97706 100%)',
-                    borderRadius: '20px',
-                    padding: '3px 12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    color: '#0f172a',
-                    fontWeight: 900,
-                    fontSize: '0.75rem',
-                    boxShadow: '0 4px 12px rgba(245, 158, 11, 0.5)'
-                  }}
-                >
-                  <Crown className="w-3.5 h-3.5 fill-current" />
-                  <span>CHAMPION</span>
-                </div>
-
                 <div
                   style={{
                     width: '50px',
@@ -154,7 +131,7 @@ export default function Leaderboard() {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    margin: '6px auto 8px',
+                    margin: '0 auto 8px',
                     boxShadow: '0 0 20px rgba(251, 191, 36, 0.6)'
                   }}
                 >

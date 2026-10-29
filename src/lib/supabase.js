@@ -177,10 +177,21 @@ export async function getScores() {
   return [];
 }
 
+function generateUUID() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 // 4. 새 참가자 점수 등록
 export async function addScore(record) {
   const newRecord = {
-    id: crypto.randomUUID ? crypto.randomUUID() : 'id_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+    id: generateUUID(),
     nickname: record.nickname,
     student_id: record.student_id,
     student_name: record.student_name,

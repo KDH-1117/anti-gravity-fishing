@@ -1,0 +1,532 @@
+@charset "UTF-8";
+
+/* ========================================================
+   [안티그래비티 축제 낚시 부스] 프리미엄 글래스모피즘 디자인 시스템
+   ======================================================== */
+
+:root {
+  --font-main: -apple-system, BlinkMacSystemFont, "Pretendard Variable", Pretendard, "Segoe UI", Roboto, "Noto Sans KR", sans-serif;
+  
+  /* 테마 컬러 팔레트 */
+  --bg-deep-ocean: #060d1a;
+  --aqua-cyan: #00f2fe;
+  --neon-purple: #9b51e0;
+  --accent-blue: #4facfe;
+  --accent-gold: #ffd700;
+  --accent-silver: #e2e8f0;
+  --accent-bronze: #cd7f32;
+  --success-green: #10b981;
+  --danger-red: #ef4444;
+  --warning-amber: #f59e0b;
+
+  /* 글래스 속성 */
+  --glass-bg: rgba(255, 255, 255, 0.12);
+  --glass-bg-hover: rgba(255, 255, 255, 0.18);
+  --glass-bg-dark: rgba(10, 25, 47, 0.65);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.28);
+  --glass-border-glow: 1px solid rgba(0, 242, 254, 0.6);
+  --glass-blur: blur(16px);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.35);
+  --glass-shadow-lg: 0 20px 50px 0 rgba(0, 0, 0, 0.5);
+  --neon-glow: 0 0 25px rgba(0, 242, 254, 0.45);
+  --purple-glow: 0 0 30px rgba(155, 81, 224, 0.45);
+  --gold-glow: 0 0 30px rgba(255, 215, 0, 0.5);
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --radius-full: 9999px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  font-family: var(--font-main);
+  background-color: var(--bg-deep-ocean);
+  color: #f1f5f9;
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 역동적인 심해 메쉬 그라디언트 배경 */
+.app-container {
+  min-height: 100vh;
+  position: relative;
+  background: radial-gradient(circle at 15% 20%, rgba(0, 242, 254, 0.18) 0%, transparent 45%),
+              radial-gradient(circle at 85% 80%, rgba(155, 81, 224, 0.22) 0%, transparent 50%),
+              radial-gradient(circle at 50% 50%, rgba(79, 172, 254, 0.12) 0%, transparent 60%),
+              linear-gradient(135deg, #050b14 0%, #0a192f 50%, #071329 100%);
+  background-attachment: fixed;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 배경 부유 오라 & 라이트 효과 */
+.bg-orb {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.5;
+  animation: floatOrb 12s ease-in-out infinite alternate;
+}
+.orb-1 {
+  width: 450px;
+  height: 450px;
+  top: -100px;
+  left: -80px;
+  background: radial-gradient(circle, rgba(0, 242, 254, 0.35) 0%, rgba(79, 172, 254, 0) 70%);
+}
+.orb-2 {
+  width: 550px;
+  height: 550px;
+  bottom: -150px;
+  right: -100px;
+  background: radial-gradient(circle, rgba(155, 81, 224, 0.35) 0%, rgba(121, 40, 202, 0) 70%);
+  animation-delay: -6s;
+}
+
+@keyframes floatOrb {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(40px, 30px) scale(1.08); }
+  100% { transform: translate(-30px, 50px) scale(0.95); }
+}
+
+/* 글래스모피즘 기본 카드 */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: var(--radius-lg);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.glass-panel:hover {
+  border-color: rgba(255, 255, 255, 0.38);
+}
+
+.glass-panel-dark {
+  background: var(--glass-bg-dark);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: var(--glass-shadow);
+  border-radius: var(--radius-lg);
+}
+
+/* 네온 글로우 카드 변형 */
+.glass-glow-cyan {
+  box-shadow: 0 8px 32px 0 rgba(0, 242, 254, 0.25), inset 0 0 20px rgba(0, 242, 254, 0.1);
+  border: 1px solid rgba(0, 242, 254, 0.4);
+}
+
+.glass-glow-gold {
+  box-shadow: 0 8px 35px 0 rgba(255, 215, 0, 0.3), inset 0 0 20px rgba(255, 215, 0, 0.15);
+  border: 1px solid rgba(255, 215, 0, 0.5);
+}
+
+/* 헤더 및 네비게이션 */
+.glass-header {
+  background: rgba(10, 25, 47, 0.55);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  width: 100%;
+}
+
+.header-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.logo-area {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.logo-icon-wrapper {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, rgba(0, 242, 254, 0.3), rgba(155, 81, 224, 0.3));
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  box-shadow: var(--neon-glow);
+}
+
+.logo-text {
+  font-size: 1.25rem;
+  font-weight: 800;
+  background: linear-gradient(90deg, #ffffff, var(--aqua-cyan));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.02em;
+}
+
+.logo-sub {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 500;
+  margin-top: 1px;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nav-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #e2e8f0;
+  padding: 8px 16px;
+  border-radius: var(--radius-full);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+  text-decoration: none;
+}
+
+.nav-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: var(--aqua-cyan);
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0, 242, 254, 0.3);
+}
+
+.nav-btn.active {
+  background: linear-gradient(135deg, rgba(0, 242, 254, 0.35), rgba(155, 81, 224, 0.35));
+  border-color: var(--aqua-cyan);
+  color: #ffffff;
+  box-shadow: var(--neon-glow);
+}
+
+/* 기본 버튼 스타일링 (Glow & Scale) */
+.btn {
+  font-family: inherit;
+  font-weight: 700;
+  border-radius: var(--radius-md);
+  padding: 12px 24px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: all 0.3s ease;
+  border: none;
+  outline: none;
+  font-size: 1rem;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--aqua-cyan) 0%, var(--accent-blue) 100%);
+  color: #060d1a;
+  box-shadow: 0 4px 20px rgba(0, 242, 254, 0.4);
+}
+.btn-primary:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 6px 30px rgba(0, 242, 254, 0.65);
+}
+
+.btn-purple {
+  background: linear-gradient(135deg, var(--neon-purple) 0%, #7928ca 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 20px rgba(155, 81, 224, 0.4);
+}
+.btn-purple:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 6px 30px rgba(155, 81, 224, 0.65);
+}
+
+.btn-glass {
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+}
+.btn-glass:hover {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(255, 255, 255, 0.2);
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+}
+.btn-danger:hover {
+  box-shadow: 0 6px 25px rgba(239, 68, 68, 0.6);
+  transform: translateY(-2px);
+}
+
+/* 입력 필드 (글래스모피즘 폼) */
+.glass-input {
+  width: 100%;
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-md);
+  padding: 14px 18px;
+  color: #ffffff;
+  font-size: 1.05rem;
+  font-family: inherit;
+  outline: none;
+  transition: all 0.3s ease;
+}
+
+.glass-input:focus {
+  border-color: var(--aqua-cyan);
+  box-shadow: 0 0 18px rgba(0, 242, 254, 0.35);
+  background: rgba(15, 23, 42, 0.85);
+}
+
+.glass-input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* 배지 (Badge) */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.badge-cyan {
+  background: rgba(0, 242, 254, 0.15);
+  color: var(--aqua-cyan);
+  border: 1px solid rgba(0, 242, 254, 0.35);
+}
+
+.badge-purple {
+  background: rgba(155, 81, 224, 0.2);
+  color: #d8b4fe;
+  border: 1px solid rgba(155, 81, 224, 0.4);
+}
+
+.badge-gold {
+  background: rgba(255, 215, 0, 0.2);
+  color: #fef08a;
+  border: 1px solid rgba(255, 215, 0, 0.5);
+}
+
+.badge-green {
+  background: rgba(16, 185, 129, 0.18);
+  color: #6ee7b7;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+/* 거대 시작 버튼 (시선 강탈) */
+.hero-start-btn {
+  width: 100%;
+  max-width: 360px;
+  padding: 22px 36px;
+  font-size: 1.6rem;
+  font-weight: 900;
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, var(--aqua-cyan) 0%, var(--accent-blue) 50%, var(--neon-purple) 100%);
+  color: #060d1a;
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 10px 40px rgba(0, 242, 254, 0.5), 0 0 25px rgba(155, 81, 224, 0.5);
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+
+.hero-start-btn:hover {
+  transform: scale(1.05) translateY(-4px);
+  box-shadow: 0 15px 55px rgba(0, 242, 254, 0.7), 0 0 40px rgba(155, 81, 224, 0.7);
+  color: #000000;
+}
+
+.hero-start-btn::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.4) 0%, transparent 60%);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.hero-start-btn:hover::before {
+  opacity: 1;
+}
+
+/* 낚싯대 강화 등급별 시각화 효과 */
+.rod-card-tier-1 {
+  border-color: rgba(200, 200, 200, 0.4);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(160, 160, 160, 0.08));
+}
+.rod-card-tier-2 {
+  border-color: rgba(56, 189, 248, 0.5);
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.15), rgba(14, 165, 233, 0.05));
+  box-shadow: 0 8px 30px rgba(56, 189, 248, 0.25);
+}
+.rod-card-tier-3 {
+  border-color: rgba(168, 85, 247, 0.6);
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(126, 34, 206, 0.1));
+  box-shadow: 0 8px 35px rgba(168, 85, 247, 0.35);
+}
+.rod-card-tier-4 {
+  border-color: rgba(0, 242, 254, 0.7);
+  background: linear-gradient(135deg, rgba(0, 242, 254, 0.22), rgba(14, 116, 144, 0.15));
+  box-shadow: 0 8px 40px rgba(0, 242, 254, 0.45);
+}
+.rod-card-tier-5 {
+  border-color: rgba(255, 215, 0, 0.85);
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.25), rgba(245, 158, 11, 0.15));
+  box-shadow: 0 10px 45px rgba(255, 215, 0, 0.55), inset 0 0 25px rgba(255, 215, 0, 0.2);
+  animation: pulseGold 2s infinite alternate;
+}
+
+@keyframes pulseGold {
+  0% { box-shadow: 0 10px 40px rgba(255, 215, 0, 0.45); }
+  100% { box-shadow: 0 15px 60px rgba(255, 215, 0, 0.75), inset 0 0 30px rgba(255, 215, 0, 0.3); }
+}
+
+/* 타이머 대형 디지털 디스플레이 */
+.timer-huge {
+  font-size: 5.5rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+  background: linear-gradient(180deg, #ffffff 0%, var(--aqua-cyan) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 25px rgba(0, 242, 254, 0.6));
+  line-height: 1;
+}
+
+.timer-critical {
+  background: linear-gradient(180deg, #ffffff 0%, #ef4444 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  filter: drop-shadow(0 0 35px rgba(239, 68, 68, 0.8)) !important;
+  animation: pulseRed 0.8s infinite alternate;
+}
+
+@keyframes pulseRed {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.06); }
+}
+
+/* 물고기 수영 및 파도 애니메이션 장식 */
+.water-container {
+  position: relative;
+  width: 100%;
+  height: 140px;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: rgba(14, 116, 144, 0.2);
+  border: 1px solid rgba(0, 242, 254, 0.25);
+  margin: 16px 0;
+}
+
+.swimming-fish {
+  position: absolute;
+  font-size: 28px;
+  animation: swimAcross 9s linear infinite;
+  opacity: 0.85;
+  filter: drop-shadow(0 0 8px rgba(0, 242, 254, 0.6));
+}
+
+@keyframes swimAcross {
+  0% { left: -10%; transform: translateY(0) scaleX(-1); }
+  40% { transform: translateY(-15px) scaleX(-1); }
+  50% { transform: translateY(10px) scaleX(-1); }
+  100% { left: 110%; transform: translateY(0) scaleX(-1); }
+}
+
+.fishing-bobber {
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 38px;
+  animation: bobberFloat 2.2s ease-in-out infinite alternate;
+  filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.6));
+}
+
+@keyframes bobberFloat {
+  0% { transform: translate(-50%, -10px) rotate(-6deg); }
+  100% { transform: translate(-50%, 15px) rotate(6deg); }
+}
+
+/* 모달 레이어 */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 11, 20, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  padding: 20px;
+}
+
+/* 반응형 모바일 패딩 조정 */
+@media (max-width: 640px) {
+  .header-container {
+    padding: 10px 14px;
+  }
+  .timer-huge {
+    font-size: 4rem;
+  }
+  .hero-start-btn {
+    font-size: 1.3rem;
+    padding: 18px 26px;
+  }
+  .nav-btn span {
+    display: none;
+  }
+}

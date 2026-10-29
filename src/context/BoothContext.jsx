@@ -152,6 +152,17 @@ export function BoothProvider({ children }) {
     await apiResetScores();
   };
 
+  // 수동/주기적 점수 갱신 함수 (폴링용)
+  const refreshScores = async () => {
+    try {
+      const loadedScores = await getScores();
+      setScores(loadedScores);
+      return loadedScores;
+    } catch (e) {
+      console.warn('refreshScores error', e);
+    }
+  };
+
   return (
     <BoothContext.Provider
       value={{
@@ -161,6 +172,7 @@ export function BoothProvider({ children }) {
         settings,
         updateBoothSettings,
         scores,
+        refreshScores,
         recordScore,
         removeScore,
         resetScores,

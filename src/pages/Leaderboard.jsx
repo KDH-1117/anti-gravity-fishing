@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useBooth } from '../context/BoothContext';
 import { sound } from '../lib/sound';
 import confetti from 'canvas-confetti';
@@ -8,25 +8,27 @@ import {
   Medal,
   Sparkles,
   Search,
-  RotateCcw,
   Fish,
-  Calendar,
   Flame,
-  UserCheck
+  Radio
 } from 'lucide-react';
 
-// 낚싯대 티어 이모지 매핑
-const ROD_ICONS = {
-  1: '🪵',
-  2: '🎣',
-  3: '⚡',
-  4: '🌊',
-  5: '👑'
-};
-
 export default function Leaderboard() {
-  const { scores, navigate, isSupabaseConnected } = useBooth();
+  const { scores, refreshScores, navigate, isSupabaseConnected } = useBooth();
   const [searchTerm, setSearchTerm] = useState('');
+  const [lastUpdated, setLastUpdated] = useState(new Date());
+
+  // 2.5초 주기 백그라운드 자동 폴링 (새로고침 없이 실시간 갱신)
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      if (refreshScores) {
+        await refreshScores();
+        setLastUpdated(new Date());
+      }
+    }, 2500);
+
+    return () => clearInterval(interval);
+  }, [refreshScores]);
 
   // 닉네임 검색 필터링
   const filteredScores = scores.filter((item) =>
@@ -36,7 +38,6 @@ export default function Leaderboard() {
   const top1 = filteredScores[0];
   const top2 = filteredScores[1];
   const top3 = filteredScores[2];
-  const rest = filteredScores.slice(3);
 
   // 1위 축하 폭죽 발사
   const triggerCelebration = () => {
@@ -52,15 +53,23 @@ export default function Leaderboard() {
     <div style={{ maxWidth: '800px', margin: '0 auto', width: '100%', padding: '24px 16px 80px' }}>
       {/* 헤더 섹션 */}
       <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-        <div
-          className="badge badge-gold"
-          style={{ marginBottom: '14px', padding: '8px 18px', cursor: 'pointer' }}
-          onClick={triggerCelebration}
-          title="클릭 시 축하 효과!"
-        >
-          <Trophy className="w-4 h-4 text-amber-300" />
-          <span>실시간 명예의 전당 (Live Leaderboard)</span>
-          <Sparkles className="w-4 h-4 text-amber-300" />
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' }}>
+          <div
+            className="badge badge-gold"
+            style={{ padding: '8px 18px', cursor: 'pointer' }}
+            onClick={triggerCelebration}
+            title="클릭 시 축하 폭죽!"
+          >
+            <Trophy className="w-4 h-4 text-amber-300" />
+            <span>실시간 순위표 전광판</span>
+            <Sparkles className="w-4 h-4 text-amber-300" />
+          </div>
+
+          {/* 자동 폴링 상태 뱃지 */}
+          <div className="badge badge-green" style={{ padding: '8px 14px' }}>
+            <Radio className="w-3.5 h-3.5 animate-pulse" />
+            <span>자동 갱신 중 (2.5초 주기)</span>
+          </div>
         </div>
 
         <h1
@@ -79,17 +88,17 @@ export default function Leaderboard() {
         </h1>
 
         <p style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.95rem' }}>
-          총 <strong style={{ color: 'var(--aqua-cyan)' }}>{scores.length}</strong>명의 낚시꾼이 도전했습니다!
-          {isSupabaseConnected ? ' (실시간 자동 동기화 켜짐)' : ''}
+          현재 총 <strong style={{ color: 'var(--aqua-cyan)' }}>{scores.length}</strong>명 참가 |{' '}
+          마지막 갱신: {lastUpdated.toLocaleTimeString()}
         </p>
 
-        {/* 검색 및 새로고침 바 */}
+        {/* 검색 및 낚시하기 바 */}
         <div style={{ maxWidth: '480px', margin: '20px auto 0', display: 'flex', gap: '10px' }}>
           <div style={{ position: 'relative', flex: 1 }}>
             <input
               type="text"
               className="glass-input"
-              placeholder="닉네임으로 검색..."
+              placeholder="참가자 닉네임 검색..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               style={{ paddingLeft: '42px', paddingRight: '14px', height: '46px' }}
@@ -105,12 +114,12 @@ export default function Leaderboard() {
             style={{ padding: '0 20px', height: '46px', whiteSpace: 'nowrap' }}
           >
             <Fish className="w-4 h-4" />
-            <span>도전하기</span>
+            <span>낚시하기</span>
           </button>
         </div>
       </div>
 
-      {/* ---------------- 1~3위 포디움 하이라이트 카드 ---------------- */}
+      {/* ---------------- 1~3위 포디움 카드 ---------------- */}
       {filteredScores.length > 0 && !searchTerm && (
         <div
           style={{
@@ -127,7 +136,6 @@ export default function Leaderboard() {
               style={{
                 padding: '24px 20px',
                 textAlign: 'center',
-                order: 1,
                 background: 'linear-gradient(135deg, rgba(255, 215, 0, 0.18), rgba(245, 158, 11, 0.08))',
                 border: '2px solid rgba(255, 215, 0, 0.7)'
               }}
@@ -158,7 +166,7 @@ export default function Leaderboard() {
               </div>
 
               <div style={{ fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.75)', marginBottom: '14px' }}>
-                장착: {ROD_ICONS[top1.rod_level] || '🎣'} Lv.{top1.rod_level}
+                장착: <strong>낚싯대 {top1.rod_level}단계</strong>
               </div>
 
               <div
@@ -182,7 +190,6 @@ export default function Leaderboard() {
               style={{
                 padding: '24px 20px',
                 textAlign: 'center',
-                order: 2,
                 background: 'linear-gradient(135deg, rgba(226, 232, 240, 0.14), rgba(148, 163, 184, 0.06))',
                 border: '1px solid rgba(226, 232, 240, 0.5)'
               }}
@@ -213,7 +220,7 @@ export default function Leaderboard() {
               </div>
 
               <div style={{ fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.75)', marginBottom: '14px' }}>
-                장착: {ROD_ICONS[top2.rod_level] || '🎣'} Lv.{top2.rod_level}
+                장착: <strong>낚싯대 {top2.rod_level}단계</strong>
               </div>
 
               <div
@@ -237,7 +244,6 @@ export default function Leaderboard() {
               style={{
                 padding: '24px 20px',
                 textAlign: 'center',
-                order: 3,
                 background: 'linear-gradient(135deg, rgba(205, 127, 50, 0.16), rgba(180, 83, 9, 0.06))',
                 border: '1px solid rgba(205, 127, 50, 0.5)'
               }}
@@ -268,7 +274,7 @@ export default function Leaderboard() {
               </div>
 
               <div style={{ fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.75)', marginBottom: '14px' }}>
-                장착: {ROD_ICONS[top3.rod_level] || '🎣'} Lv.{top3.rod_level}
+                장착: <strong>낚싯대 {top3.rod_level}단계</strong>
               </div>
 
               <div
@@ -287,7 +293,7 @@ export default function Leaderboard() {
         </div>
       )}
 
-      {/* ---------------- 전체 순위표 목록 ---------------- */}
+      {/* ---------------- 전체 순위표 ---------------- */}
       <div className="glass-panel" style={{ padding: '24px 20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#ffffff', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -295,7 +301,7 @@ export default function Leaderboard() {
             <span>전체 낚시 랭킹 순위</span>
           </h3>
           <span style={{ fontSize: '0.8rem', color: 'rgba(255, 255, 255, 0.55)' }}>
-            점수 높은 순 내림차순 정렬
+            점수 높은 순 실시간 자동 정렬
           </span>
         </div>
 
@@ -306,7 +312,7 @@ export default function Leaderboard() {
               {searchTerm ? '검색된 닉네임이 없습니다.' : '아직 등록된 낚시 점수가 없습니다.'}
             </p>
             <button onClick={() => navigate('/')} className="btn btn-primary">
-              첫 번째 낚시꾼으로 도전하기!
+              첫 번째로 낚시 도전하기!
             </button>
           </div>
         ) : (
@@ -341,7 +347,6 @@ export default function Leaderboard() {
                     transition: 'all 0.25s ease'
                   }}
                 >
-                  {/* 왼쪽: 순위 번호 + 닉네임 + 낚싯대 */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                     <div
                       style={{
@@ -361,8 +366,7 @@ export default function Leaderboard() {
                         fontSize: '0.95rem',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center',
-                        boxShadow: rank <= 3 ? '0 0 12px rgba(255, 255, 255, 0.3)' : 'none'
+                        justifyContent: 'center'
                       }}
                     >
                       {rank}
@@ -373,7 +377,7 @@ export default function Leaderboard() {
                         {record.nickname}
                       </div>
                       <div style={{ fontSize: '0.78rem', color: 'rgba(255, 255, 255, 0.6)', marginTop: '2px' }}>
-                        장착: {ROD_ICONS[record.rod_level] || '🎣'} Lv.{record.rod_level || 1}
+                        낚싯대 {record.rod_level || 1}단계
                         {record.created_at && (
                           <span style={{ marginLeft: '8px' }}>
                             • {new Date(record.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -383,7 +387,6 @@ export default function Leaderboard() {
                     </div>
                   </div>
 
-                  {/* 오른쪽: 점수 */}
                   <div style={{ textAlign: 'right' }}>
                     <span
                       style={{

@@ -4,20 +4,16 @@ import { sound } from '../lib/sound';
 import {
   Sliders,
   Clock,
-  Coins,
   Dice5,
   Eye,
   EyeOff,
   Save,
-  RotateCcw,
   Trash2,
   Download,
   PlusCircle,
   CheckCircle2,
   ShieldCheck,
-  Database,
   Lock,
-  Sparkles,
   AlertTriangle
 } from 'lucide-react';
 
@@ -28,8 +24,7 @@ export default function Admin() {
     scores,
     removeScore,
     resetScores,
-    recordScore,
-    isSupabaseConnected
+    recordScore
   } = useBooth();
 
   // 1. 제한 시간 및 비용 로컬 폼 상태
@@ -91,44 +86,6 @@ export default function Admin() {
     setTimeout(() => setSaveSuccess(false), 3000);
   };
 
-  // 확률 조작 원클릭 프리셋
-  const applyPreset = (type) => {
-    sound.playClick();
-    if (type === 'HONEST') {
-      // 정직 모드: 보이는 것과 실제가 일치
-      setDisplaySuccess(50);
-      setDisplayKeep(30);
-      setDisplayDowngrade(20);
-      setHiddenSuccess(50);
-      setHiddenKeep(30);
-      setHiddenDowngrade(20);
-    } else if (type === 'GENEROUS') {
-      // 축제 대박 모드: 높은 성공 확률
-      setDisplaySuccess(70);
-      setDisplayKeep(20);
-      setDisplayDowngrade(10);
-      setHiddenSuccess(70);
-      setHiddenKeep(20);
-      setHiddenDowngrade(10);
-    } else if (type === 'NIGHTMARE') {
-      // 사장님 극악 모드: 실제 성공 극소
-      setDisplaySuccess(50);
-      setDisplayKeep(30);
-      setDisplayDowngrade(20);
-      setHiddenSuccess(10);
-      setHiddenKeep(40);
-      setHiddenDowngrade(50);
-    } else if (type === 'FALSE_HOPE') {
-      // 희망고문 모드: 화면엔 80% 성공이라 적어두고 실제론 15%만 성공!
-      setDisplaySuccess(80);
-      setDisplayKeep(15);
-      setDisplayDowngrade(5);
-      setHiddenSuccess(15);
-      setHiddenKeep(40);
-      setHiddenDowngrade(45);
-    }
-  };
-
   // CSV 다운로드 (UTF-8 with BOM for Excel)
   const exportToCSV = () => {
     sound.playClick();
@@ -137,13 +94,13 @@ export default function Admin() {
       return;
     }
 
-    const headers = ['순위', '닉네임', '학번', '이름', '낚싯대레벨', '최종점수', '등록일시'];
+    const headers = ['순위', '닉네임', '학번', '이름', '낚싯대단계', '최종점수', '등록일시'];
     const rows = scores.map((item, idx) => [
       idx + 1,
       `"${item.nickname || ''}"`,
       `"${item.student_id || ''}"`,
       `"${item.student_name || ''}"`,
-      `Lv.${item.rod_level || 1}`,
+      `"${item.rod_level || 1}단계"`,
       item.score || 0,
       `"${new Date(item.created_at).toLocaleString()}"`
     ]);
@@ -173,7 +130,7 @@ export default function Admin() {
       await recordScore(item);
     }
     sound.playSuccess();
-    alert('샘플 참가자 4명이 리더보드에 추가되었습니다!');
+    alert('샘플 참가자 4명이 순위표에 추가되었습니다!');
   };
 
   return (
@@ -220,17 +177,13 @@ export default function Admin() {
       )}
 
       {/* ---------------- 1 & 2: 기본 시간 & 비용 설정 ---------------- */}
-      <div
-        className="glass-panel"
-        style={{ padding: '28px 24px', marginBottom: '24px' }}
-      >
+      <div className="glass-panel" style={{ padding: '28px 24px', marginBottom: '24px' }}>
         <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Clock className="w-5 h-5 text-cyan-400" />
           <span>1. 낚시 타이머 및 강화 비용 단위 설정</span>
         </h3>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px' }}>
-          {/* 타이머 시간 설정 */}
           <div>
             <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, marginBottom: '8px' }}>
               낚시 제한 시간 (초 단위)
@@ -261,11 +214,10 @@ export default function Admin() {
               placeholder="예: 60"
             />
             <span style={{ fontSize: '0.78rem', color: 'rgba(255, 255, 255, 0.55)', marginTop: '4px', display: 'block' }}>
-              참가자 낚시 페이즈 시작 시 자동으로 적용되는 시간입니다.
+              참가자 낚시 시작 시 적용되는 시간입니다.
             </span>
           </div>
 
-          {/* 강화 비용 텍스트 */}
           <div>
             <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, marginBottom: '8px' }}>
               강화 비용 단위 텍스트
@@ -302,7 +254,7 @@ export default function Admin() {
         </div>
       </div>
 
-      {/* ---------------- 3: 확률 조작 시스템 (핵심!) ---------------- */}
+      {/* ---------------- 3: 확률 조작 시스템 (프리셋 제거, 깔끔한 직접 조절) ---------------- */}
       <div
         className="glass-panel"
         style={{
@@ -312,35 +264,17 @@ export default function Admin() {
           background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8), rgba(88, 28, 135, 0.15))'
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
-          <div>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: '#f3e8ff', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Dice5 className="w-5 h-5 text-purple-400" />
-              <span>3. 낚싯대 강화 확률 조작 시스템 (RNG Rigging)</span>
-            </h3>
-            <p style={{ fontSize: '0.82rem', color: 'rgba(255, 255, 255, 0.65)', marginTop: '2px' }}>
-              참가자 화면에 띄우는 ‘명목상 확률’과 실제 코드에서 굴려지는 ‘히든 확률’을 완전히 분리 제어합니다.
-            </p>
-          </div>
-
-          {/* 원클릭 프리셋 버튼군 */}
-          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-            <button onClick={() => applyPreset('HONEST')} className="btn btn-glass" style={{ padding: '6px 12px', fontSize: '0.78rem' }}>
-              🎯 정직 모드
-            </button>
-            <button onClick={() => applyPreset('GENEROUS')} className="btn btn-glass" style={{ padding: '6px 12px', fontSize: '0.78rem', color: '#6ee7b7' }}>
-              🎁 축제 대박
-            </button>
-            <button onClick={() => applyPreset('NIGHTMARE')} className="btn btn-glass" style={{ padding: '6px 12px', fontSize: '0.78rem', color: '#f87171' }}>
-              😈 사장님 극악
-            </button>
-            <button onClick={() => applyPreset('FALSE_HOPE')} className="btn btn-glass" style={{ padding: '6px 12px', fontSize: '0.78rem', color: '#fde68a' }}>
-              🎭 희망고문 (강추)
-            </button>
-          </div>
+        <div style={{ marginBottom: '14px' }}>
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: '#f3e8ff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Dice5 className="w-5 h-5 text-purple-400" />
+            <span>2. 낚싯대 강화 확률 조작 시스템</span>
+          </h3>
+          <p style={{ fontSize: '0.82rem', color: 'rgba(255, 255, 255, 0.65)', marginTop: '2px' }}>
+            참가자 화면에 띄우는 ‘명목상 확률’과 실제 코드에서 굴려지는 ‘히든 확률’을 완전히 분리 제어합니다.
+          </p>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px', marginTop: '20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px', marginTop: '16px' }}>
           {/* A. 화면 표시용 (명목) 확률 */}
           <div
             className="glass-panel"
@@ -355,7 +289,7 @@ export default function Admin() {
               <span>화면 표시용 (디스플레이 명목) 확률</span>
             </div>
             <p style={{ fontSize: '0.78rem', color: 'rgba(255, 255, 255, 0.6)', marginBottom: '16px' }}>
-              참가자 강화 화면에 당당하게 보여지는 안심용 수치입니다.
+              참가자 화면에 보여지는 안내용 수치입니다.
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -410,7 +344,7 @@ export default function Admin() {
             </div>
           </div>
 
-          {/* B. 실제 (Hidden) 확률 - 백엔드/로직 작동용 */}
+          {/* B. 실제 (Hidden) 확률 */}
           <div
             className="glass-panel"
             style={{
@@ -425,7 +359,7 @@ export default function Admin() {
               <span>실제 (Hidden) 확률 - 실제 당첨 로직</span>
             </div>
             <p style={{ fontSize: '0.78rem', color: 'rgba(255, 255, 255, 0.7)', marginBottom: '16px' }}>
-              ⚠️ 참가자 몰래 백그라운드에서 실제 굴려지는 진짜 확률입니다!
+              참가자에게 보이지 않고 실제 내부 로직에서 굴려지는 확률입니다.
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -482,12 +416,12 @@ export default function Admin() {
         </div>
       </div>
 
-      {/* ---------------- 4: 참가자 전체 명단 및 데이터 관리 (비공개 학번/이름 포함) ---------------- */}
+      {/* ---------------- 4: 참가자 전체 명단 관리 (비공개 학번/이름 포함) ---------------- */}
       <div className="glass-panel" style={{ padding: '28px 24px', marginBottom: '24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '10px' }}>
           <div>
             <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#ffffff' }}>
-              4. 참가자 전체 명단 관리 (운영진 대외비)
+              3. 참가자 전체 명단 관리 (운영진 대외비)
             </h3>
             <p style={{ fontSize: '0.8rem', color: 'rgba(255, 255, 255, 0.6)' }}>
               축제 상품 수여를 위한 참가자 학번, 실명 및 점수 기록부 (총 {scores.length}건)
@@ -551,7 +485,7 @@ export default function Admin() {
                     </td>
                     <td style={{ padding: '12px' }}>{row.student_id}</td>
                     <td style={{ padding: '12px' }}>{row.student_name}</td>
-                    <td style={{ padding: '12px' }}>Lv.{row.rod_level}</td>
+                    <td style={{ padding: '12px' }}>{row.rod_level}단계</td>
                     <td style={{ padding: '12px', fontWeight: 800, color: '#fef08a' }}>
                       {row.score}점
                     </td>
@@ -585,11 +519,11 @@ export default function Admin() {
         )}
       </div>
 
-      {/* ---------------- 5: 공통 비밀번호 및 시스템 보안 ---------------- */}
+      {/* ---------------- 5: 공통 비밀번호 ---------------- */}
       <div className="glass-panel" style={{ padding: '24px' }}>
         <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Lock className="w-4 h-4 text-cyan-400" />
-          <span>5. 부스 공통 인증 비밀번호 변경</span>
+          <span>4. 부스 공통 인증 비밀번호 변경</span>
         </h3>
 
         <div style={{ maxWidth: '400px' }}>

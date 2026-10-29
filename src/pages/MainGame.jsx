@@ -27,7 +27,7 @@ const ROD_TIERS = {
 export default function MainGame() {
   const { settings, recordScore, navigate } = useBooth();
 
-  // 단계: 0: START화면, 1: 닉네임, 2: 학번/이름, 3: 강화, 4: 낚시 타이머, 5: 점수 입력
+  // 단계: 0: START, 1: 닉네임, 2: 학번/이름, 3: 강화, 4: 낚시 타이머, 5: 점수 입력
   const [step, setStep] = useState(0);
 
   // 참가자 정보
@@ -110,6 +110,7 @@ export default function MainGame() {
     setStep(3);
   };
 
+  // 강화 실행 (1단계에서는 절대 하락 불가)
   const handleEnhance = () => {
     if (rodLevel >= 5 || isEnhancing) return;
 
@@ -131,7 +132,12 @@ export default function MainGame() {
       } else if (roll < pSuccess + pKeep) {
         result = 'KEEP';
       } else {
-        result = 'DOWN';
+        // [중요 요구사항]: 1단계에서는 하락 못하게 함 (하락 대신 유지 처리)
+        if (rodLevel === 1) {
+          result = 'KEEP';
+        } else {
+          result = 'DOWN';
+        }
       }
 
       setEnhanceCount((prev) => prev + 1);
@@ -218,11 +224,11 @@ export default function MainGame() {
 
   return (
     <div style={{ maxWidth: '540px', margin: '0 auto', width: '100%', padding: '24px 16px 80px' }}>
-      {/* ---------------- 0단계: 심플 대형 START 화면 ---------------- */}
+      {/* ---------------- 0단계: 꽤 큰 START 버튼 단독 화면 ---------------- */}
       {step === 0 && (
         <div
           style={{
-            minHeight: '65vh',
+            minHeight: '70vh',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -233,15 +239,17 @@ export default function MainGame() {
             className="hero-start-btn"
             onClick={handleStartGame}
             style={{
-              width: '280px',
-              height: '110px',
-              fontSize: '2.4rem',
+              width: '100%',
+              maxWidth: '360px',
+              height: '140px',
+              fontSize: '3.4rem',
               fontWeight: 900,
-              borderRadius: '28px',
-              letterSpacing: '0.05em'
+              borderRadius: '36px',
+              letterSpacing: '0.06em',
+              boxShadow: '0 15px 50px rgba(0, 242, 254, 0.6), 0 0 40px rgba(155, 81, 224, 0.5)'
             }}
           >
-            <Play className="w-10 h-10 fill-current" />
+            <Play className="w-12 h-12 fill-current" />
             <span>START</span>
           </button>
         </div>
@@ -335,7 +343,7 @@ export default function MainGame() {
         </div>
       )}
 
-      {/* ---------------- 3단계: 낚싯대 강화 (1~5단계) ---------------- */}
+      {/* ---------------- 3단계: 낚싯대 강화 (1단계 하락 방지 적용) ---------------- */}
       {step === 3 && (
         <div style={{ marginTop: '10px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
@@ -424,7 +432,7 @@ export default function MainGame() {
             <div style={{ display: 'flex', gap: '10px' }}>
               <span>성공 <strong style={{ color: '#6ee7b7' }}>{settings?.display_success || 50}%</strong></span>
               <span>유지 <strong style={{ color: '#fde68a' }}>{settings?.display_keep || 30}%</strong></span>
-              <span>하락 <strong style={{ color: '#fca5a5' }}>{settings?.display_downgrade || 20}%</strong></span>
+              <span>하락 <strong style={{ color: '#fca5a5' }}>{rodLevel === 1 ? '0%' : `${settings?.display_downgrade || 20}%`}</strong></span>
             </div>
           </div>
 

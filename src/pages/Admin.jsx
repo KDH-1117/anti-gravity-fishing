@@ -31,31 +31,38 @@ export default function Admin() {
     adminLogout
   } = useBooth();
 
-  // 관리자 로그인 폼 상태
+  // 관리자 로그인 폼
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
   const [adminLoginError, setAdminLoginError] = useState('');
 
-  // 1. 제한 시간 및 비용 상태
+  // 1. 제한 시간 및 비용
   const [timeLimit, setTimeLimit] = useState(settings?.time_limit || 60);
   const [costText, setCostText] = useState(settings?.cost_text || '1 ESTA');
 
-  // 2. 명목상(디스플레이) 확률 상태
+  // 2. 명목상(디스플레이) 확률
   const [displaySuccess, setDisplaySuccess] = useState(settings?.display_success || 50);
   const [displayKeep, setDisplayKeep] = useState(settings?.display_keep || 30);
   const [displayDowngrade, setDisplayDowngrade] = useState(settings?.display_downgrade || 20);
 
-  // 3. 실제(Hidden) 확률 상태
+  // 3. 실제(Hidden) 확률
   const [hiddenSuccess, setHiddenSuccess] = useState(settings?.hidden_success || 25);
   const [hiddenKeep, setHiddenKeep] = useState(settings?.hidden_keep || 35);
   const [hiddenDowngrade, setHiddenDowngrade] = useState(settings?.hidden_downgrade || 40);
 
-  // 4. 비밀번호 관리 상태
+  // 4. 비밀번호 관리
   const [authPassword, setAuthPassword] = useState(settings?.auth_password || '105fish');
   const [adminPassword, setAdminPassword] = useState(settings?.admin_password || '12345678');
 
   // 알림 및 모달
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [probSaveSuccess, setProbSaveSuccess] = useState(false);
+  const [probError, setProbError] = useState('');
   const [resetConfirmModal, setResetConfirmModal] = useState(false);
+
+  // 확률 총합 계산
+  const displayTotal = displaySuccess + displayKeep + displayDowngrade;
+  const hiddenTotal = hiddenSuccess + hiddenKeep + hiddenDowngrade;
+  const isProbValid = displayTotal === 100 && hiddenTotal === 100;
 
   useEffect(() => {
     if (settings) {
@@ -72,7 +79,7 @@ export default function Admin() {
     }
   }, [settings]);
 
-  // 관리자 로그인 제출
+  // 관리자 로그인
   const handleAdminLoginSubmit = (e) => {
     e.preventDefault();
     if (!adminPasswordInput.trim()) {
@@ -88,9 +95,41 @@ export default function Admin() {
     }
   };
 
-  // 설정 저장
+  // 확률 전용 저장 핸들러 (100% 검증 필수)
+  const handleSaveProbabilities = async () => {
+    if (!isProbValid) {
+      sound.playDowngrade();
+      setProbError(`확률 합계가 100%가 아닙니다. (표시: ${displayTotal}%, 실제: ${hiddenTotal}%)`);
+      return;
+    }
+
+    sound.playClick();
+    setProbError('');
+
+    await updateBoothSettings({
+      display_success: displaySuccess,
+      display_keep: displayKeep,
+      display_downgrade: displayDowngrade,
+      hidden_success: hiddenSuccess,
+      hidden_keep: hiddenKeep,
+      hidden_downgrade: hiddenDowngrade
+    });
+
+    sound.playSuccess();
+    setProbSaveSuccess(true);
+    setTimeout(() => setProbSaveSuccess(false), 3000);
+  };
+
+  // 전체 설정 저장
   const handleSaveSettings = async (e) => {
     e?.preventDefault();
+
+    if (!isProbValid) {
+      sound.playDowngrade();
+      alert(`확률의 합계가 100%가 되어야 저장할 수 있습니다.\n현재 - 표시 확률: ${displayTotal}%, 실제 확률: ${hiddenTotal}%`);
+      return;
+    }
+
     sound.playClick();
 
     const newConfig = {
@@ -149,17 +188,19 @@ export default function Admin() {
       { nickname: '월척사냥꾼', student_id: '10501', student_name: '강민우', rod_level: 5, score: 98 },
       { nickname: '샤크마스터', student_id: '10515', student_name: '이지은', rod_level: 4, score: 85 },
       { nickname: '축제요정', student_id: '10522', student_name: '박준호', rod_level: 3, score: 62 },
-      { nickname: '낚시꿈나무', student_id: '10508', student_name: '김서연', rod_level: 2, score: 40 }
+      { nickname: '낚시꿈나무', student_id: '10508', student_name: '김서연', rod_level: 2, score: 40 },
+      { nickname: '바다사나이', student_id: '10519', student_name: '정우진', rod_level: 3, score: 35 },
+      { nickname: '초보낚시꾼', student_id: '10511', student_name: '윤도현', rod_level: 1, score: 20 }
     ];
 
     for (const item of samples) {
       await recordScore(item);
     }
     sound.playSuccess();
-    alert('샘플 4건이 등록되었습니다.');
+    alert('샘플 참가자가 순위표에 추가되었습니다.');
   };
 
-  // ---------------- 관리자 미인증 시 전용 로그인 게이트 ----------------
+  // ---------------- 관리자 미인증 시 로그인 게이트 ----------------
   if (!isAdminAuthenticated) {
     return (
       <div style={{ maxWidth: '400px', margin: '60px auto', padding: '0 16px' }}>
@@ -233,7 +274,7 @@ export default function Admin() {
   // ---------------- 관리자 인증 완료 화면 ----------------
   return (
     <div style={{ maxWidth: '820px', margin: '0 auto', width: '100%', padding: '24px 16px 80px' }}>
-      {/* 헤더 */}
+      {/* 상단 바 */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <h1 style={{ fontSize: '1.8rem', fontWeight: 900, color: '#ffffff' }}>
@@ -244,7 +285,7 @@ export default function Admin() {
         <div style={{ display: 'flex', gap: '8px' }}>
           <button onClick={handleSaveSettings} className="btn btn-primary" style={{ padding: '10px 18px', fontSize: '0.9rem' }}>
             <Save className="w-4 h-4" />
-            <span>설정 저장</span>
+            <span>전체 설정 저장</span>
           </button>
           <button onClick={adminLogout} className="btn btn-glass" style={{ padding: '10px 14px', fontSize: '0.85rem' }}>
             로그아웃
@@ -273,12 +314,174 @@ export default function Admin() {
         </div>
       )}
 
-      {/* ---------------- 1: 순위표 초기화 & 데이터 관리 ---------------- */}
+      {/* ---------------- 1: 확률 조작 시스템 + 밑에 전용 저장 버튼 (100% 검증) ---------------- */}
+      <div className="glass-panel" style={{ padding: '24px 20px', marginBottom: '20px', border: '1px solid rgba(155, 81, 224, 0.4)' }}>
+        <h3 style={{ fontSize: '1.15rem', fontWeight: 800, marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Dice5 className="w-5 h-5 text-purple-400" />
+          <span>낚싯대 강화 확률 조작 시스템</span>
+        </h3>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+          {/* 화면 표시용 */}
+          <div className="glass-panel" style={{ padding: '16px', background: 'rgba(15, 23, 42, 0.6)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--aqua-cyan)', fontWeight: 800, marginBottom: '12px', fontSize: '0.9rem' }}>
+              <Eye className="w-4 h-4" />
+              <span>화면 표시용 확률</span>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '3px' }}>
+                  <span>성공</span>
+                  <strong>{displaySuccess}%</strong>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={displaySuccess}
+                  onChange={(e) => setDisplaySuccess(Number(e.target.value))}
+                  style={{ width: '100%', accentColor: '#10b981' }}
+                />
+              </div>
+
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '3px' }}>
+                  <span>유지</span>
+                  <strong>{displayKeep}%</strong>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={displayKeep}
+                  onChange={(e) => setDisplayKeep(Number(e.target.value))}
+                  style={{ width: '100%', accentColor: '#f59e0b' }}
+                />
+              </div>
+
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '3px' }}>
+                  <span>하락 (2단계부터 적용)</span>
+                  <strong>{displayDowngrade}%</strong>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={displayDowngrade}
+                  onChange={(e) => setDisplayDowngrade(Number(e.target.value))}
+                  style={{ width: '100%', accentColor: '#ef4444' }}
+                />
+              </div>
+
+              <div style={{ textAlign: 'right', fontSize: '0.8rem', fontWeight: 700, color: displayTotal === 100 ? '#6ee7b7' : '#f87171' }}>
+                합계: {displayTotal}% {displayTotal === 100 ? '(정상)' : '(100% 필요)'}
+              </div>
+            </div>
+          </div>
+
+          {/* 실제 Hidden */}
+          <div className="glass-panel" style={{ padding: '16px', background: 'rgba(88, 28, 135, 0.2)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#d8b4fe', fontWeight: 800, marginBottom: '12px', fontSize: '0.9rem' }}>
+              <EyeOff className="w-4 h-4 text-purple-300" />
+              <span>실제 (Hidden) 확률</span>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '3px' }}>
+                  <span>실제 성공</span>
+                  <strong>{hiddenSuccess}%</strong>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={hiddenSuccess}
+                  onChange={(e) => setHiddenSuccess(Number(e.target.value))}
+                  style={{ width: '100%', accentColor: '#10b981' }}
+                />
+              </div>
+
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '3px' }}>
+                  <span>실제 유지</span>
+                  <strong>{hiddenKeep}%</strong>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={hiddenKeep}
+                  onChange={(e) => setHiddenKeep(Number(e.target.value))}
+                  style={{ width: '100%', accentColor: '#f59e0b' }}
+                />
+              </div>
+
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '3px' }}>
+                  <span>실제 하락 (2단계부터 적용)</span>
+                  <strong>{hiddenDowngrade}%</strong>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={hiddenDowngrade}
+                  onChange={(e) => setHiddenDowngrade(Number(e.target.value))}
+                  style={{ width: '100%', accentColor: '#ef4444' }}
+                />
+              </div>
+
+              <div style={{ textAlign: 'right', fontSize: '0.8rem', fontWeight: 700, color: hiddenTotal === 100 ? '#6ee7b7' : '#f87171' }}>
+                합계: {hiddenTotal}% {hiddenTotal === 100 ? '(정상)' : '(100% 필요)'}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* [요청사항]: 확률 조작 밑에 저장 버튼 + 100% 미충족 시 작동 차단 */}
+        <div style={{ marginTop: '18px', paddingTop: '16px', borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>
+          {!isProbValid && (
+            <div style={{ color: '#f87171', fontSize: '0.85rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+              <span>
+                표시 확률({displayTotal}%)과 실제 확률({hiddenTotal}%)의 총합이 각각 100%여야 저장할 수 있습니다.
+              </span>
+            </div>
+          )}
+
+          {probSaveSuccess && (
+            <div style={{ color: '#6ee7b7', fontSize: '0.85rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <CheckCircle2 className="w-4 h-4" />
+              <span>확률 설정이 정상 저장되었습니다!</span>
+            </div>
+          )}
+
+          <button
+            onClick={handleSaveProbabilities}
+            disabled={!isProbValid}
+            className="btn btn-purple"
+            style={{
+              padding: '12px 24px',
+              fontSize: '0.95rem',
+              opacity: isProbValid ? 1 : 0.45,
+              cursor: isProbValid ? 'pointer' : 'not-allowed'
+            }}
+          >
+            <Save className="w-4 h-4" />
+            <span>확률 설정 저장</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ---------------- 2: 순위표 초기화 & 참가자 명부 관리 ---------------- */}
       <div className="glass-panel" style={{ padding: '24px 20px', marginBottom: '20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
           <div>
             <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#ffffff' }}>
-              참가자 명부 및 순위표 관리 (총 {scores.length}건)
+              순위표 및 참가자 명부 (총 {scores.length}건)
             </h3>
           </div>
 
@@ -360,7 +563,7 @@ export default function Admin() {
         )}
       </div>
 
-      {/* ---------------- 2: 비밀번호 변경 (공통 접속 & 관리자) ---------------- */}
+      {/* ---------------- 3: 비밀번호 변경 ---------------- */}
       <div className="glass-panel" style={{ padding: '24px 20px', marginBottom: '20px' }}>
         <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Lock className="w-4 h-4 text-cyan-400" />
@@ -370,7 +573,7 @@ export default function Admin() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
           <div>
             <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '6px' }}>
-              공통 접속 비밀번호 (메인/순위표 접속용)
+              부스 접속 비밀번호
             </label>
             <input
               type="text"
@@ -383,7 +586,7 @@ export default function Admin() {
 
           <div>
             <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '6px' }}>
-              관리자 페이지 전용 비밀번호
+              관리자 페이지 비밀번호
             </label>
             <input
               type="text"
@@ -400,7 +603,7 @@ export default function Admin() {
         </button>
       </div>
 
-      {/* ---------------- 3: 타이머 및 비용 설정 ---------------- */}
+      {/* ---------------- 4: 타이머 및 비용 설정 ---------------- */}
       <div className="glass-panel" style={{ padding: '24px 20px', marginBottom: '20px' }}>
         <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Clock className="w-4 h-4 text-cyan-400" />
@@ -434,135 +637,7 @@ export default function Admin() {
         </div>
       </div>
 
-      {/* ---------------- 4: 확률 조작 시스템 ---------------- */}
-      <div className="glass-panel" style={{ padding: '24px 20px', marginBottom: '20px', border: '1px solid rgba(155, 81, 224, 0.4)' }}>
-        <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Dice5 className="w-4 h-4 text-purple-400" />
-          <span>확률 조작 시스템</span>
-        </h3>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
-          {/* 화면 표시용 */}
-          <div className="glass-panel" style={{ padding: '16px', background: 'rgba(15, 23, 42, 0.6)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--aqua-cyan)', fontWeight: 800, marginBottom: '12px', fontSize: '0.9rem' }}>
-              <Eye className="w-4 h-4" />
-              <span>화면 표시용 확률</span>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '3px' }}>
-                  <span>성공</span>
-                  <strong>{displaySuccess}%</strong>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={displaySuccess}
-                  onChange={(e) => setDisplaySuccess(Number(e.target.value))}
-                  style={{ width: '100%', accentColor: '#10b981' }}
-                />
-              </div>
-
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '3px' }}>
-                  <span>유지</span>
-                  <strong>{displayKeep}%</strong>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={displayKeep}
-                  onChange={(e) => setDisplayKeep(Number(e.target.value))}
-                  style={{ width: '100%', accentColor: '#f59e0b' }}
-                />
-              </div>
-
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '3px' }}>
-                  <span>하락</span>
-                  <strong>{displayDowngrade}%</strong>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={displayDowngrade}
-                  onChange={(e) => setDisplayDowngrade(Number(e.target.value))}
-                  style={{ width: '100%', accentColor: '#ef4444' }}
-                />
-              </div>
-
-              <div style={{ textAlign: 'right', fontSize: '0.75rem', color: displaySuccess + displayKeep + displayDowngrade === 100 ? '#6ee7b7' : '#f87171' }}>
-                합계: {displaySuccess + displayKeep + displayDowngrade}%
-              </div>
-            </div>
-          </div>
-
-          {/* 실제 Hidden */}
-          <div className="glass-panel" style={{ padding: '16px', background: 'rgba(88, 28, 135, 0.2)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#d8b4fe', fontWeight: 800, marginBottom: '12px', fontSize: '0.9rem' }}>
-              <EyeOff className="w-4 h-4 text-purple-300" />
-              <span>실제 (Hidden) 확률</span>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '3px' }}>
-                  <span>실제 성공</span>
-                  <strong>{hiddenSuccess}%</strong>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={hiddenSuccess}
-                  onChange={(e) => setHiddenSuccess(Number(e.target.value))}
-                  style={{ width: '100%', accentColor: '#10b981' }}
-                />
-              </div>
-
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '3px' }}>
-                  <span>실제 유지</span>
-                  <strong>{hiddenKeep}%</strong>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={hiddenKeep}
-                  onChange={(e) => setHiddenKeep(Number(e.target.value))}
-                  style={{ width: '100%', accentColor: '#f59e0b' }}
-                />
-              </div>
-
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '3px' }}>
-                  <span>실제 하락</span>
-                  <strong>{hiddenDowngrade}%</strong>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={hiddenDowngrade}
-                  onChange={(e) => setHiddenDowngrade(Number(e.target.value))}
-                  style={{ width: '100%', accentColor: '#ef4444' }}
-                />
-              </div>
-
-              <div style={{ textAlign: 'right', fontSize: '0.75rem', color: hiddenSuccess + hiddenKeep + hiddenDowngrade === 100 ? '#6ee7b7' : '#f87171' }}>
-                합계: {hiddenSuccess + hiddenKeep + hiddenDowngrade}%
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 리더보드 초기화 확인 모달 */}
+      {/* 리더보드 초기화 모달 */}
       {resetConfirmModal && (
         <div className="modal-overlay">
           <div
@@ -581,7 +656,7 @@ export default function Admin() {
               순위표를 초기화할까요?
             </h3>
             <p style={{ fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.65)', marginBottom: '20px' }}>
-              모든 참가자 점수 기록이 삭제됩니다.
+              모든 참가자 점수 기록이 영구 삭제됩니다.
             </p>
 
             <div style={{ display: 'flex', gap: '10px' }}>

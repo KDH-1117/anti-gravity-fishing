@@ -21,17 +21,14 @@ export default function Navbar() {
   return (
     <header className="glass-header">
       <div className="header-container" style={{ maxWidth: '800px' }}>
-        {/* 로고 */}
+        {/* 왼쪽 위: 텍스트 없이 아이콘만 단독 배치 */}
         <div className="logo-area" onClick={() => navigate('/')}>
-          <div className="logo-icon-wrapper" style={{ width: '38px', height: '38px' }}>
+          <div className="logo-icon-wrapper" style={{ width: '40px', height: '40px' }}>
             <Fish className="w-5 h-5 text-cyan-300" />
-          </div>
-          <div>
-            <div className="logo-text" style={{ fontSize: '1.15rem' }}>낚시 부스</div>
           </div>
         </div>
 
-        {/* 네비게이션: 메인화면과 순위표만 노출 */}
+        {/* 네비게이션: 낚시 & 순위표 */}
         <div className="nav-links">
           <button
             onClick={() => navigate('/')}
@@ -59,7 +56,7 @@ export default function Navbar() {
             {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-cyan-300" />}
           </button>
 
-          {/* 로그아웃 / 잠금 */}
+          {/* 잠금 */}
           {isAuthenticated && (
             <button
               onClick={logout}

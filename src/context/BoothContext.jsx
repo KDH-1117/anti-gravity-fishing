@@ -176,6 +176,39 @@ export function BoothProvider({ children }) {
     return newRecord;
   };
 
+  // 닉네임 중복 체크 함수 (로컬 캐시 + Supabase 실시간 동시 검증)
+  const checkNicknameExists = async (rawNickname) => {
+    const target = (rawNickname || '').trim().toLowerCase();
+    if (!target) return false;
+
+    // 1. 현재 로컬 상태에서 대소문자 무시 체크
+    const existsLocally = scores.some(
+      (s) => (s.nickname || '').trim().toLowerCase() === target
+    );
+    if (existsLocally) return true;
+
+    // 2. Supabase DB 최신 레코드와 직접 대조
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('booth_scores')
+          .select('nickname')
+          .limit(200);
+
+        if (!error && data) {
+          const match = data.some(
+            (row) => (row.nickname || '').trim().toLowerCase() === target
+          );
+          if (match) return true;
+        }
+      } catch (err) {
+        console.warn('Nickname check DB fallback error:', err);
+      }
+    }
+
+    return false;
+  };
+
   // 단건 삭제
   const removeScore = async (id) => {
     setScores(prev => prev.filter(item => item.id !== id));
@@ -201,6 +234,7 @@ export function BoothProvider({ children }) {
         updateBoothSettings,
         scores,
         refreshScores,
+        checkNicknameExists,
         recordScore,
         removeScore,
         resetScores,

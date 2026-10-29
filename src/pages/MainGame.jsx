@@ -26,7 +26,7 @@ const ROD_TIERS = {
 };
 
 export default function MainGame() {
-  const { settings, recordScore, navigate } = useBooth();
+  const { settings, recordScore, navigate, checkNicknameExists } = useBooth();
 
   // 단계: 0: START, 1: 닉네임, 2: 학번/이름, 3: 강화, 4: 낚시 타이머, 5: 점수 입력
   const [step, setStep] = useState(0);
@@ -35,6 +35,20 @@ export default function MainGame() {
   const [nickname, setNickname] = useState('');
   const [studentId, setStudentId] = useState('');
   const [studentName, setStudentName] = useState('');
+  const [isCheckingNick, setIsCheckingNick] = useState(false);
+
+  // 게임 진행 도중 새로고침/창 닫기 차단 (클라이언트 보안 가드)
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (step >= 1 && step <= 4) {
+        e.preventDefault();
+        e.returnValue = '게임이 진행 중입니다. 페이지를 벗어나시겠습니까?';
+        return e.returnValue;
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [step]);
 
   // 강화 상태
   const [rodLevel, setRodLevel] = useState(1);
@@ -89,15 +103,41 @@ export default function MainGame() {
     setInputError('');
   };
 
-  const handleNextNickname = (e) => {
+  // 닉네임 입력 및 중복 체크 (중복 아닌 것만 진행 가능)
+  const handleNextNickname = async (e) => {
     e.preventDefault();
-    if (!nickname.trim()) {
+    const cleanNick = nickname.trim();
+    if (!cleanNick) {
       setInputError('닉네임을 입력해주세요.');
       return;
     }
-    sound.playClick();
+    if (cleanNick.length < 2) {
+      setInputError('닉네임은 2자 이상 입력해주세요.');
+      return;
+    }
+
+    setIsCheckingNick(true);
     setInputError('');
-    setStep(2);
+
+    try {
+      const isDuplicated = await checkNicknameExists(cleanNick);
+      if (isDuplicated) {
+        sound.playDowngrade();
+        setInputError('이미 사용 중인 닉네임입니다. 다른 닉네임을 입력해주세요.');
+        setIsCheckingNick(false);
+        return;
+      }
+
+      sound.playClick();
+      setInputError('');
+      setStep(2);
+    } catch (err) {
+      console.error('Nickname check failed:', err);
+      sound.playClick();
+      setStep(2);
+    } finally {
+      setIsCheckingNick(false);
+    }
   };
 
   const handleNextStudentInfo = (e) => {
@@ -183,9 +223,16 @@ export default function MainGame() {
 
   const handleSubmitScore = async (e) => {
     e.preventDefault();
+    if (step !== 5) return; // 낚시 타이머 종료 후 5단계에서만 입력 가능
+
     const finalScore = parseInt(scoreInput, 10);
-    if (isNaN(finalScore) || finalScore < 0) {
-      alert('올바른 점수를 입력해주세요.');
+    if (isNaN(finalScore) || finalScore < 0 || finalScore > 9999) {
+      alert('0 이상의 올바른 점수를 입력해주세요.');
+      return;
+    }
+
+    if (!nickname.trim() || !studentId.trim() || !studentName.trim()) {
+      alert('참가자 정보가 유효하지 않습니다.');
       return;
     }
 
@@ -267,14 +314,14 @@ export default function MainGame() {
         </div>
       )}
 
-      {/* ---------------- 1단계: 닉네임 입력 ---------------- */}
+      {/* ---------------- 1단계: 닉네임 입력 (중복 방지) ---------------- */}
       {step === 1 && (
         <div className="glass-panel" style={{ padding: '36px 28px', marginTop: '20px' }}>
           <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '6px' }}>
             닉네임 입력
           </h2>
           <p style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: '0.9rem', marginBottom: '22px' }}>
-            순위표에 표시될 닉네임을 입력하세요.
+            순위표에 표시될 중복 없는 닉네임을 입력하세요.
           </p>
 
           <form onSubmit={handleNextNickname}>
@@ -282,21 +329,31 @@ export default function MainGame() {
               <input
                 type="text"
                 className="glass-input"
-                placeholder="닉네임"
+                placeholder="닉네임 (2~12자)"
                 value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
+                onChange={(e) => {
+                  setNickname(e.target.value);
+                  if (inputError) setInputError('');
+                }}
                 maxLength={12}
                 autoFocus
+                disabled={isCheckingNick}
               />
               {inputError && (
-                <div style={{ color: '#f87171', fontSize: '0.85rem', marginTop: '8px' }}>
-                  {inputError}
+                <div style={{ color: '#f87171', fontSize: '0.85rem', marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                  <span>{inputError}</span>
                 </div>
               )}
             </div>
 
-            <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '14px' }}>
-              <span>다음</span>
+            <button
+              type="submit"
+              disabled={isCheckingNick || !nickname.trim()}
+              className="btn btn-primary"
+              style={{ width: '100%', padding: '14px', opacity: isCheckingNick || !nickname.trim() ? 0.6 : 1 }}
+            >
+              <span>{isCheckingNick ? '중복 검사 중...' : '다음'}</span>
               <ArrowRight className="w-5 h-5" />
             </button>
           </form>
@@ -323,7 +380,11 @@ export default function MainGame() {
                 className="glass-input"
                 placeholder="예: 10512"
                 value={studentId}
-                onChange={(e) => setStudentId(e.target.value)}
+                onChange={(e) => {
+                  setStudentId(e.target.value);
+                  if (inputError) setInputError('');
+                }}
+                maxLength={10}
                 autoFocus
               />
             </div>
@@ -337,13 +398,23 @@ export default function MainGame() {
                 className="glass-input"
                 placeholder="이름"
                 value={studentName}
-                onChange={(e) => setStudentName(e.target.value)}
+                onChange={(e) => {
+                  setStudentName(e.target.value);
+                  if (inputError) setInputError('');
+                }}
+                maxLength={10}
               />
             </div>
 
+            {/* [요청사항]: 학번 이름 입력창 밑에 회색으로 작게 상품 수여 목적이므로 정확하게 입력해주시기 바랍니다 */}
+            <p style={{ color: 'rgba(255, 255, 255, 0.45)', fontSize: '0.8rem', marginTop: '-4px', marginBottom: '2px', lineHeight: 1.4 }}>
+              상품 수여 목적이므로 정확하게 입력해주시기 바랍니다
+            </p>
+
             {inputError && (
-              <div style={{ color: '#f87171', fontSize: '0.85rem' }}>
-                {inputError}
+              <div style={{ color: '#f87171', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                <span>{inputError}</span>
               </div>
             )}
 

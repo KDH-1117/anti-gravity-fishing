@@ -32,7 +32,7 @@ export const DEFAULT_SETTINGS = {
   hidden_keep: 35,
   hidden_downgrade: 40,
   stage_probabilities: DEFAULT_STAGE_PROBABILITIES,
-  auth_password: '105fish',
+  auth_password: '12345678',
   admin_password: '12345678'
 };
 

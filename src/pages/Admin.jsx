@@ -18,7 +18,8 @@ import {
   AlertTriangle,
   RotateCcw,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Loader2
 } from 'lucide-react';
 
 export default function Admin() {
@@ -42,27 +43,33 @@ export default function Admin() {
   // 1. 제한 시간 및 비용
   const [timeLimit, setTimeLimit] = useState(settings?.time_limit || 60);
   const [costText, setCostText] = useState(settings?.cost_text || '1 ESTA');
+  const [isSavingTimeCost, setIsSavingTimeCost] = useState(false);
+  const [timeCostSuccess, setTimeCostSuccess] = useState(false);
 
   // 2. 단계별 확률 상태 (접힘/펼침 제어)
   const [isProbExpanded, setIsProbExpanded] = useState(false); // [요청사항]: 접혀있다가 펼칠 수 있게 (기본 접힘)
   const [activeStage, setActiveStage] = useState(1); // 1, 2, 3, 4
   const [stageProbs, setStageProbs] = useState(DEFAULT_STAGE_PROBABILITIES);
-
-  // 3. 비밀번호 관리
-  const [authPassword, setAuthPassword] = useState(settings?.auth_password || '105fish');
-  const [adminPassword, setAdminPassword] = useState(settings?.admin_password || '12345678');
-
-  // 알림 및 모달
-  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isSavingProb, setIsSavingProb] = useState(false);
   const [probSaveSuccess, setProbSaveSuccess] = useState(false);
   const [probError, setProbError] = useState('');
+
+  // 3. 비밀번호 관리
+  const [authPassword, setAuthPassword] = useState(settings?.auth_password || '12345678');
+  const [adminPassword, setAdminPassword] = useState(settings?.admin_password || '12345678');
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+
+  // 전체 저장 상태 및 모달
+  const [isSavingAll, setIsSavingAll] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
   const [resetConfirmModal, setResetConfirmModal] = useState(false);
 
   useEffect(() => {
     if (settings) {
       setTimeLimit(settings.time_limit || 60);
       setCostText(settings.cost_text || '1 ESTA');
-      setAuthPassword(settings.auth_password || '105fish');
+      setAuthPassword(settings.auth_password || '12345678');
       setAdminPassword(settings.admin_password || '12345678');
 
       if (settings.stage_probabilities) {
@@ -134,7 +141,7 @@ export default function Admin() {
     }
   };
 
-  // 단계별 확률 전용 저장 핸들러 (전체 단계 100% 검증)
+  // 1. 단계별 확률 전용 저장 핸들러
   const handleSaveProbabilities = async () => {
     if (!isAllStagesValid) {
       sound.playDowngrade();
@@ -144,25 +151,94 @@ export default function Admin() {
 
     sound.playClick();
     setProbError('');
+    setIsSavingProb(true);
 
-    const s2 = stageProbs[2] || DEFAULT_STAGE_PROBABILITIES[2];
-    await updateBoothSettings({
-      stage_probabilities: stageProbs,
-      // 이전 버전 호환 필드
-      display_success: s2.display.success,
-      display_keep: s2.display.keep,
-      display_downgrade: s2.display.downgrade,
-      hidden_success: s2.hidden.success,
-      hidden_keep: s2.hidden.keep,
-      hidden_downgrade: s2.hidden.downgrade
-    });
+    try {
+      const s2 = stageProbs[2] || DEFAULT_STAGE_PROBABILITIES[2];
+      await updateBoothSettings({
+        stage_probabilities: stageProbs,
+        display_success: s2.display.success,
+        display_keep: s2.display.keep,
+        display_downgrade: s2.display.downgrade,
+        hidden_success: s2.hidden.success,
+        hidden_keep: s2.hidden.keep,
+        hidden_downgrade: s2.hidden.downgrade
+      });
 
-    sound.playSuccess();
-    setProbSaveSuccess(true);
-    setTimeout(() => setProbSaveSuccess(false), 3000);
+      sound.playSuccess();
+      setProbSaveSuccess(true);
+      setTimeout(() => setProbSaveSuccess(false), 3000);
+    } catch (e) {
+      console.error(e);
+      alert('확률 설정 저장 중 오류가 발생했습니다.');
+    } finally {
+      setIsSavingProb(false);
+    }
   };
 
-  // 전체 설정 저장
+  // 2. 비밀번호 전용 저장 핸들러
+  const handleSavePasswords = async (e) => {
+    e?.preventDefault();
+    const cleanAuth = authPassword.trim();
+    const cleanAdmin = adminPassword.trim();
+
+    if (!cleanAuth || !cleanAdmin) {
+      alert('비밀번호를 공백으로 설정할 수 없습니다.');
+      return;
+    }
+
+    sound.playClick();
+    setIsSavingPassword(true);
+
+    try {
+      await updateBoothSettings({
+        auth_password: cleanAuth,
+        admin_password: cleanAdmin
+      });
+
+      sound.playSuccess();
+      setPasswordSuccess(true);
+      setTimeout(() => setPasswordSuccess(false), 3000);
+    } catch (e) {
+      console.error(e);
+      alert('비밀번호 저장 중 오류가 발생했습니다.');
+    } finally {
+      setIsSavingPassword(false);
+    }
+  };
+
+  // 3. 제한 시간 및 비용 전용 저장 핸들러
+  const handleSaveTimeCost = async (e) => {
+    e?.preventDefault();
+    const limit = Number(timeLimit) || 60;
+    const cost = costText.trim() || '1 ESTA';
+
+    if (limit <= 0) {
+      alert('제한 시간은 1초 이상이어야 합니다.');
+      return;
+    }
+
+    sound.playClick();
+    setIsSavingTimeCost(true);
+
+    try {
+      await updateBoothSettings({
+        time_limit: limit,
+        cost_text: cost
+      });
+
+      sound.playSuccess();
+      setTimeCostSuccess(true);
+      setTimeout(() => setTimeCostSuccess(false), 3000);
+    } catch (e) {
+      console.error(e);
+      alert('시간 및 비용 저장 중 오류가 발생했습니다.');
+    } finally {
+      setIsSavingTimeCost(false);
+    }
+  };
+
+  // 4. 전체 설정 일괄 저장
   const handleSaveSettings = async (e) => {
     e?.preventDefault();
 
@@ -173,26 +249,34 @@ export default function Admin() {
     }
 
     sound.playClick();
+    setIsSavingAll(true);
 
-    const s2 = stageProbs[2] || DEFAULT_STAGE_PROBABILITIES[2];
-    const newConfig = {
-      time_limit: Number(timeLimit) || 60,
-      cost_text: costText.trim() || '1 ESTA',
-      stage_probabilities: stageProbs,
-      display_success: s2.display.success,
-      display_keep: s2.display.keep,
-      display_downgrade: s2.display.downgrade,
-      hidden_success: s2.hidden.success,
-      hidden_keep: s2.hidden.keep,
-      hidden_downgrade: s2.hidden.downgrade,
-      auth_password: authPassword.trim() || '105fish',
-      admin_password: adminPassword.trim() || '12345678'
-    };
+    try {
+      const s2 = stageProbs[2] || DEFAULT_STAGE_PROBABILITIES[2];
+      const newConfig = {
+        time_limit: Number(timeLimit) || 60,
+        cost_text: costText.trim() || '1 ESTA',
+        stage_probabilities: stageProbs,
+        display_success: s2.display.success,
+        display_keep: s2.display.keep,
+        display_downgrade: s2.display.downgrade,
+        hidden_success: s2.hidden.success,
+        hidden_keep: s2.hidden.keep,
+        hidden_downgrade: s2.hidden.downgrade,
+        auth_password: authPassword.trim() || '12345678',
+        admin_password: adminPassword.trim() || '12345678'
+      };
 
-    await updateBoothSettings(newConfig);
-    sound.playSuccess();
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 3000);
+      await updateBoothSettings(newConfig);
+      sound.playSuccess();
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (e) {
+      console.error(e);
+      alert('전체 설정 저장 중 오류가 발생했습니다.');
+    } finally {
+      setIsSavingAll(false);
+    }
   };
 
   // CSV 내보내기
@@ -339,9 +423,35 @@ export default function Admin() {
         </div>
 
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button onClick={handleSaveSettings} className="btn btn-primary" style={{ padding: '10px 18px', fontSize: '0.9rem' }}>
-            <Save className="w-4 h-4" />
-            <span>전체 설정 저장</span>
+          <button
+            onClick={handleSaveSettings}
+            disabled={isSavingAll}
+            className={`btn ${saveSuccess ? 'btn-success' : 'btn-primary'}`}
+            style={{
+              padding: '10px 18px',
+              fontSize: '0.9rem',
+              background: saveSuccess ? 'rgba(16, 185, 129, 0.35)' : undefined,
+              borderColor: saveSuccess ? '#10b981' : undefined,
+              color: saveSuccess ? '#6ee7b7' : undefined,
+              boxShadow: saveSuccess ? '0 0 16px rgba(16, 185, 129, 0.4)' : undefined
+            }}
+          >
+            {isSavingAll ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin text-cyan-300" />
+                <span>전체 저장 진행 중...</span>
+              </>
+            ) : saveSuccess ? (
+              <>
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span>✓ 전체 저장 완료!</span>
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4" />
+                <span>전체 설정 저장</span>
+              </>
+            )}
           </button>
           <button
             onClick={() => {
@@ -690,7 +800,7 @@ export default function Admin() {
               </div>
             </div>
 
-            {/* 확률 설정 저장 버튼 + 100% 검증 */}
+            {/* 확률 설정 저장 버튼 (진행 상태 + 완료 피드백 완비) */}
             <div style={{ marginTop: '18px', paddingTop: '16px', borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>
               {!isAllStagesValid && (
                 <div style={{ color: '#f87171', fontSize: '0.85rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -710,17 +820,35 @@ export default function Admin() {
 
               <button
                 onClick={handleSaveProbabilities}
-                disabled={!isAllStagesValid}
+                disabled={!isAllStagesValid || isSavingProb}
                 className="btn btn-purple"
                 style={{
                   padding: '12px 24px',
                   fontSize: '0.95rem',
-                  opacity: isAllStagesValid ? 1 : 0.45,
-                  cursor: isAllStagesValid ? 'pointer' : 'not-allowed'
+                  opacity: !isAllStagesValid ? 0.45 : 1,
+                  cursor: isAllStagesValid ? 'pointer' : 'not-allowed',
+                  background: probSaveSuccess ? 'rgba(16, 185, 129, 0.35)' : undefined,
+                  borderColor: probSaveSuccess ? '#10b981' : undefined,
+                  color: probSaveSuccess ? '#6ee7b7' : undefined,
+                  boxShadow: probSaveSuccess ? '0 0 16px rgba(16, 185, 129, 0.4)' : undefined
                 }}
               >
-                <Save className="w-4 h-4" />
-                <span>단계별 확률 설정 저장</span>
+                {isSavingProb ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-cyan-300" />
+                    <span>확률 저장 진행 중...</span>
+                  </>
+                ) : probSaveSuccess ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <span>✓ 단계별 확률 저장 완료!</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    <span>단계별 확률 설정 저장</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -814,7 +942,7 @@ export default function Admin() {
         )}
       </div>
 
-      {/* ---------------- 3: 비밀번호 변경 ---------------- */}
+      {/* ---------------- 3: 비밀번호 변경 (개별 저장 버튼 완비) ---------------- */}
       <div className="glass-panel" style={{ padding: '24px 20px', marginBottom: '20px' }}>
         <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Lock className="w-4 h-4 text-cyan-400" />
@@ -831,7 +959,7 @@ export default function Admin() {
               className="glass-input"
               value={authPassword}
               onChange={(e) => setAuthPassword(e.target.value)}
-              placeholder="105fish"
+              placeholder="12345678"
             />
           </div>
 
@@ -849,12 +977,47 @@ export default function Admin() {
           </div>
         </div>
 
-        <button onClick={handleSaveSettings} className="btn btn-glass" style={{ marginTop: '14px', fontSize: '0.85rem' }}>
-          비밀번호 저장
+        {passwordSuccess && (
+          <div style={{ color: '#6ee7b7', fontSize: '0.85rem', marginTop: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <span>비밀번호가 성공적으로 변경되었습니다!</span>
+          </div>
+        )}
+
+        <button
+          onClick={handleSavePasswords}
+          disabled={isSavingPassword}
+          className="btn btn-glass"
+          style={{
+            marginTop: '14px',
+            fontSize: '0.9rem',
+            padding: '10px 20px',
+            background: passwordSuccess ? 'rgba(16, 185, 129, 0.3)' : undefined,
+            borderColor: passwordSuccess ? '#10b981' : 'var(--aqua-cyan)',
+            color: passwordSuccess ? '#6ee7b7' : '#ffffff',
+            boxShadow: passwordSuccess ? '0 0 14px rgba(16, 185, 129, 0.35)' : undefined
+          }}
+        >
+          {isSavingPassword ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin text-cyan-300" />
+              <span>비밀번호 저장 중...</span>
+            </>
+          ) : passwordSuccess ? (
+            <>
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <span>✓ 비밀번호 저장 완료!</span>
+            </>
+          ) : (
+            <>
+              <Save className="w-4 h-4 text-cyan-400" />
+              <span>비밀번호 저장</span>
+            </>
+          )}
         </button>
       </div>
 
-      {/* ---------------- 4: 타이머 및 비용 설정 ---------------- */}
+      {/* ---------------- 4: 타이머 및 비용 설정 (개별 저장 버튼 완비) ---------------- */}
       <div className="glass-panel" style={{ padding: '24px 20px', marginBottom: '20px' }}>
         <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Clock className="w-4 h-4 text-cyan-400" />
@@ -886,6 +1049,45 @@ export default function Admin() {
             />
           </div>
         </div>
+
+        {timeCostSuccess && (
+          <div style={{ color: '#6ee7b7', fontSize: '0.85rem', marginTop: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <span>제한 시간 및 비용 설정이 저장되었습니다!</span>
+          </div>
+        )}
+
+        <button
+          onClick={handleSaveTimeCost}
+          disabled={isSavingTimeCost}
+          className="btn btn-glass"
+          style={{
+            marginTop: '14px',
+            fontSize: '0.9rem',
+            padding: '10px 20px',
+            background: timeCostSuccess ? 'rgba(16, 185, 129, 0.3)' : undefined,
+            borderColor: timeCostSuccess ? '#10b981' : 'var(--aqua-cyan)',
+            color: timeCostSuccess ? '#6ee7b7' : '#ffffff',
+            boxShadow: timeCostSuccess ? '0 0 14px rgba(16, 185, 129, 0.35)' : undefined
+          }}
+        >
+          {isSavingTimeCost ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin text-cyan-300" />
+              <span>시간/비용 저장 중...</span>
+            </>
+          ) : timeCostSuccess ? (
+            <>
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <span>✓ 시간 및 비용 저장 완료!</span>
+            </>
+          ) : (
+            <>
+              <Save className="w-4 h-4 text-cyan-400" />
+              <span>시간 및 비용 설정 저장</span>
+            </>
+          )}
+        </button>
       </div>
 
       {/* 리더보드 초기화 모달 */}

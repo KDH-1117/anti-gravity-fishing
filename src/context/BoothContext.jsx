@@ -103,7 +103,7 @@ export function BoothProvider({ children }) {
 
   // 일반 공통 로그인
   const login = (passwordInput) => {
-    const targetPassword = settings?.auth_password || '105fish';
+    const targetPassword = settings?.auth_password || '12345678';
     if (passwordInput === targetPassword) {
       localStorage.setItem(AUTH_KEY, 'authenticated');
       setIsAuthenticated(true);

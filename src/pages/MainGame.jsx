@@ -37,19 +37,6 @@ export default function MainGame() {
   const [studentName, setStudentName] = useState('');
   const [isCheckingNick, setIsCheckingNick] = useState(false);
 
-  // 게임 진행 도중 새로고침/창 닫기 차단 (클라이언트 보안 가드)
-  useEffect(() => {
-    const handleBeforeUnload = (e) => {
-      if (step >= 1 && step <= 4) {
-        e.preventDefault();
-        e.returnValue = '게임이 진행 중입니다. 페이지를 벗어나시겠습니까?';
-        return e.returnValue;
-      }
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [step]);
-
   // 강화 상태
   const [rodLevel, setRodLevel] = useState(1);
   const [isEnhancing, setIsEnhancing] = useState(false);

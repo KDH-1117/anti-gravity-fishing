@@ -79,18 +79,6 @@ export default function Navbar() {
           >
             {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-cyan-300" />}
           </button>
-
-          {/* 잠금 */}
-          {isAuthenticated && (
-            <button
-              onClick={logout}
-              className="nav-btn"
-              title="잠금"
-              style={{ padding: '8px 10px', color: '#f87171' }}
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
-          )}
         </div>
       </div>
     </header>

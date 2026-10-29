@@ -31,7 +31,8 @@ export default function Admin() {
     recordScore,
     isAdminAuthenticated,
     adminLogin,
-    adminLogout
+    adminLogout,
+    navigate
   } = useBooth();
 
   // 관리자 로그인 폼
@@ -307,6 +308,14 @@ export default function Admin() {
             <button type="submit" className="btn btn-purple" style={{ width: '100%', padding: '13px' }}>
               <span>관리자 접속</span>
             </button>
+            <button
+              type="button"
+              onClick={() => navigate('/')}
+              className="btn btn-glass"
+              style={{ width: '100%', padding: '11px', marginTop: '4px', fontSize: '0.88rem' }}
+            >
+              <span>메인 화면으로 돌아가기</span>
+            </button>
           </form>
         </div>
       </div>
@@ -334,7 +343,16 @@ export default function Admin() {
             <Save className="w-4 h-4" />
             <span>전체 설정 저장</span>
           </button>
-          <button onClick={adminLogout} className="btn btn-glass" style={{ padding: '10px 14px', fontSize: '0.85rem' }}>
+          <button
+            onClick={() => {
+              sound.playClick();
+              adminLogout();
+              navigate('/');
+            }}
+            className="btn btn-glass"
+            style={{ padding: '10px 14px', fontSize: '0.85rem' }}
+            title="관리자 세션 종료 후 메인 화면으로 이동"
+          >
             로그아웃
           </button>
         </div>

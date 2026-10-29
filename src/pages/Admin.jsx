@@ -413,7 +413,7 @@ export default function Admin() {
       return;
     }
 
-    const headers = ['순위', '닉네임', '학번', '이름', '낚싯대단계', '최종점수', '등록일시'];
+    const headers = ['순위', '닉네임', '학번', '이름', '달성단계', '최종점수', '등록일시'];
     const rows = scores.map((item, idx) => [
       idx + 1,
       `"${item.nickname || ''}"`,
@@ -992,7 +992,7 @@ export default function Admin() {
                 type="text"
                 value={prizes[item.rank] ?? '-'}
                 onChange={(e) => setPrizes(prev => ({ ...prev, [item.rank]: e.target.value }))}
-                placeholder="미정 시 - 입력 (예: 문화상품권 1만원)"
+                placeholder="미정 시 - 입력"
                 style={{
                   width: '100%',
                   padding: '9px 12px',
@@ -1406,7 +1406,7 @@ export default function Admin() {
                   type="text"
                   value={manualForm.nickname}
                   onChange={(e) => setManualForm(prev => ({ ...prev, nickname: e.target.value }))}
-                  placeholder="예: 낚시마스터"
+                  placeholder="닉네임 입력"
                   required
                   style={{
                     width: '100%',
@@ -1428,7 +1428,7 @@ export default function Admin() {
                     type="text"
                     value={manualForm.student_id}
                     onChange={(e) => setManualForm(prev => ({ ...prev, student_id: e.target.value }))}
-                    placeholder="예: 10501"
+                    placeholder="학번 5자리 입력"
                     maxLength={5}
                     required
                     style={{
@@ -1450,7 +1450,7 @@ export default function Admin() {
                     type="text"
                     value={manualForm.student_name}
                     onChange={(e) => setManualForm(prev => ({ ...prev, student_name: e.target.value }))}
-                    placeholder="예: 김민수"
+                    placeholder="이름 입력"
                     required
                     style={{
                       width: '100%',
@@ -1467,7 +1467,7 @@ export default function Admin() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '6px' }}>
-                    달성 낚싯대 단계
+                    달성 단계
                   </label>
                   <select
                     value={manualForm.rod_level}
@@ -1482,11 +1482,11 @@ export default function Admin() {
                       fontSize: '0.85rem'
                     }}
                   >
-                    <option value={1}>1단계 (나무 낚싯대)</option>
-                    <option value={2}>2단계 (카본 낚싯대)</option>
-                    <option value={3}>3단계 (티타늄 낚싯대)</option>
-                    <option value={4}>4단계 (플라즈마 낚싯대)</option>
-                    <option value={5}>5단계 (신화 낚싯대)</option>
+                    <option value={1}>1단계</option>
+                    <option value={2}>2단계</option>
+                    <option value={3}>3단계</option>
+                    <option value={4}>4단계</option>
+                    <option value={5}>5단계</option>
                   </select>
                 </div>
 
@@ -1498,7 +1498,7 @@ export default function Admin() {
                     type="number"
                     value={manualForm.score}
                     onChange={(e) => setManualForm(prev => ({ ...prev, score: e.target.value }))}
-                    placeholder="예: 85"
+                    placeholder="최종 점수 입력"
                     required
                     style={{
                       width: '100%',

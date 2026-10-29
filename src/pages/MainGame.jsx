@@ -18,11 +18,11 @@ import {
 } from 'lucide-react';
 
 const ROD_TIERS = {
-  1: { level: 1, name: '낚싯대 1단계', color: '#94a3b8' },
-  2: { level: 2, name: '낚싯대 2단계', color: '#38bdf8' },
-  3: { level: 3, name: '낚싯대 3단계', color: '#c084fc' },
-  4: { level: 4, name: '낚싯대 4단계', color: '#00f2fe' },
-  5: { level: 5, name: '낚싯대 5단계 (최대)', color: '#ffd700' }
+  1: { level: 1, name: '1단계', color: '#4ade80' },
+  2: { level: 2, name: '2단계', color: '#3b82f6' },
+  3: { level: 3, name: '3단계', color: '#a855f7' },
+  4: { level: 4, name: '4단계', color: '#ef4444' },
+  5: { level: 5, name: '5단계 (최대)', color: '#facc15' }
 };
 
 export default function MainGame() {
@@ -365,7 +365,7 @@ export default function MainGame() {
               <input
                 type="text"
                 className="glass-input"
-                placeholder="예: 10512"
+                placeholder="학번 5자리 입력"
                 value={studentId}
                 onChange={(e) => {
                   setStudentId(e.target.value);
@@ -431,7 +431,9 @@ export default function MainGame() {
               padding: '36px 20px',
               textAlign: 'center',
               marginBottom: '16px',
-              border: `2px solid ${currentRod.color}`
+              border: `2px solid ${currentRod.color}`,
+              boxShadow: `0 0 25px ${currentRod.color}40`,
+              transition: 'all 0.3s ease'
             }}
           >
             <div

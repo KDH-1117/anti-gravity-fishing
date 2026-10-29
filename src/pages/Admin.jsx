@@ -11,7 +11,6 @@ import {
   Save,
   Trash2,
   Download,
-  PlusCircle,
   CheckCircle2,
   Lock,
   KeyRound,
@@ -73,11 +72,28 @@ export default function Admin() {
       setAdminPassword(settings.admin_password || '12345678');
 
       if (settings.stage_probabilities) {
+        const raw = settings.stage_probabilities;
+        const parseStage = (num) => {
+          const s = raw[num] || raw[String(num)] || DEFAULT_STAGE_PROBABILITIES[num];
+          return {
+            display: {
+              success: Number(s.display?.success ?? DEFAULT_STAGE_PROBABILITIES[num].display.success),
+              keep: Number(s.display?.keep ?? DEFAULT_STAGE_PROBABILITIES[num].display.keep),
+              downgrade: num === 1 ? 0 : Number(s.display?.downgrade ?? DEFAULT_STAGE_PROBABILITIES[num].display.downgrade)
+            },
+            hidden: {
+              success: Number(s.hidden?.success ?? DEFAULT_STAGE_PROBABILITIES[num].hidden.success),
+              keep: Number(s.hidden?.keep ?? DEFAULT_STAGE_PROBABILITIES[num].hidden.keep),
+              downgrade: num === 1 ? 0 : Number(s.hidden?.downgrade ?? DEFAULT_STAGE_PROBABILITIES[num].hidden.downgrade)
+            }
+          };
+        };
+
         setStageProbs({
-          1: { ...DEFAULT_STAGE_PROBABILITIES[1], ...(settings.stage_probabilities[1] || settings.stage_probabilities['1']) },
-          2: { ...DEFAULT_STAGE_PROBABILITIES[2], ...(settings.stage_probabilities[2] || settings.stage_probabilities['2']) },
-          3: { ...DEFAULT_STAGE_PROBABILITIES[3], ...(settings.stage_probabilities[3] || settings.stage_probabilities['3']) },
-          4: { ...DEFAULT_STAGE_PROBABILITIES[4], ...(settings.stage_probabilities[4] || settings.stage_probabilities['4']) }
+          1: parseStage(1),
+          2: parseStage(2),
+          3: parseStage(3),
+          4: parseStage(4)
         });
       }
     }
@@ -307,25 +323,6 @@ export default function Admin() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  };
-
-  // 샘플 데이터 추가
-  const handleAddSampleData = async () => {
-    sound.playClick();
-    const samples = [
-      { nickname: '월척사냥꾼', student_id: '10501', student_name: '강민우', rod_level: 5, score: 98 },
-      { nickname: '샤크마스터', student_id: '10515', student_name: '이지은', rod_level: 4, score: 85 },
-      { nickname: '축제요정', student_id: '10522', student_name: '박준호', rod_level: 3, score: 62 },
-      { nickname: '낚시꿈나무', student_id: '10508', student_name: '김서연', rod_level: 2, score: 40 },
-      { nickname: '바다사나이', student_id: '10519', student_name: '정우진', rod_level: 3, score: 35 },
-      { nickname: '초보낚시꾼', student_id: '10511', student_name: '윤도현', rod_level: 1, score: 20 }
-    ];
-
-    for (const item of samples) {
-      await recordScore(item);
-    }
-    sound.playSuccess();
-    alert('샘플 참가자가 순위표에 추가되었습니다.');
   };
 
   // ---------------- 관리자 미인증 시 로그인 게이트 ----------------
@@ -868,10 +865,6 @@ export default function Admin() {
             <button onClick={exportToCSV} className="btn btn-glass" style={{ padding: '8px 12px', fontSize: '0.8rem', borderColor: '#10b981' }}>
               <Download className="w-4 h-4 text-emerald-400" />
               <span>CSV 다운로드</span>
-            </button>
-            <button onClick={handleAddSampleData} className="btn btn-glass" style={{ padding: '8px 12px', fontSize: '0.8rem' }}>
-              <PlusCircle className="w-4 h-4 text-cyan-300" />
-              <span>샘플 추가</span>
             </button>
             <button
               onClick={() => setResetConfirmModal(true)}

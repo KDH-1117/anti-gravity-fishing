@@ -137,10 +137,22 @@ export async function updateSettings(newSettings) {
     try {
       const { error } = await supabase
         .from('booth_settings')
-        .upsert(payload);
-      if (error) console.error('Supabase updateSettings error:', error);
+        .update(payload)
+        .eq('id', 1);
+
+      if (error) {
+        console.warn('Supabase update failed, attempting upsert:', error);
+        const { error: upsertErr } = await supabase
+          .from('booth_settings')
+          .upsert(payload);
+        if (upsertErr) {
+          console.error('Supabase upsert also failed:', upsertErr);
+          throw upsertErr;
+        }
+      }
     } catch (e) {
-      console.warn('Supabase updateSettings error:', e);
+      console.error('Supabase updateSettings fatal error:', e);
+      throw e;
     }
   }
 

@@ -150,8 +150,12 @@ export function BoothProvider({ children }) {
 
   // 설정 업데이트
   const updateBoothSettings = async (newSettings) => {
-    setSettings(prev => ({ ...prev, ...newSettings }));
-    const saved = await apiUpdateSettings({ ...settings, ...newSettings });
+    let nextSettings;
+    setSettings(prev => {
+      nextSettings = { ...prev, ...newSettings };
+      return nextSettings;
+    });
+    const saved = await apiUpdateSettings(nextSettings || { ...settings, ...newSettings });
     return saved;
   };
 

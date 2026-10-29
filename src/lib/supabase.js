@@ -29,6 +29,18 @@ export const DEFAULT_PRIZES = {
   5: '-'
 };
 
+// 기본 안전 강화 설정값 (하락 방지, 기본 5회 제한)
+export const DEFAULT_SAFE_ENHANCE = {
+  max_count: 5,
+  cost_text: '2 ESTA',
+  probabilities: {
+    1: { display_success: 70, hidden_success: 60 },
+    2: { display_success: 60, hidden_success: 45 },
+    3: { display_success: 50, hidden_success: 30 },
+    4: { display_success: 40, hidden_success: 20 }
+  }
+};
+
 // 기본 설정값
 export const DEFAULT_SETTINGS = {
   id: 1,
@@ -42,6 +54,7 @@ export const DEFAULT_SETTINGS = {
   hidden_downgrade: 40,
   stage_probabilities: DEFAULT_STAGE_PROBABILITIES,
   prizes: DEFAULT_PRIZES,
+  safe_enhance: DEFAULT_SAFE_ENHANCE,
   auth_password: '12345678',
   admin_password: '12345678'
 };
@@ -104,7 +117,8 @@ export async function getSettings() {
           ...DEFAULT_SETTINGS,
           ...data,
           stage_probabilities: data.stage_probabilities || DEFAULT_STAGE_PROBABILITIES,
-          prizes: data.prizes || DEFAULT_PRIZES
+          prizes: data.prizes || DEFAULT_PRIZES,
+          safe_enhance: data.safe_enhance || DEFAULT_SAFE_ENHANCE
         };
         localStorage.setItem(LOCAL_STORAGE_SETTINGS_KEY, JSON.stringify(merged));
         return merged;
@@ -122,7 +136,8 @@ export async function getSettings() {
         ...DEFAULT_SETTINGS,
         ...parsed,
         stage_probabilities: parsed.stage_probabilities || DEFAULT_STAGE_PROBABILITIES,
-        prizes: parsed.prizes || DEFAULT_PRIZES
+        prizes: parsed.prizes || DEFAULT_PRIZES,
+        safe_enhance: parsed.safe_enhance || DEFAULT_SAFE_ENHANCE
       };
     }
   } catch (e) {

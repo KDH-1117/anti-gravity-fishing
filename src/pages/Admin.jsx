@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useBooth } from '../context/BoothContext';
 import { sound } from '../lib/sound';
-import { DEFAULT_STAGE_PROBABILITIES, DEFAULT_PRIZES } from '../lib/supabase';
+import { DEFAULT_STAGE_PROBABILITIES, DEFAULT_PRIZES, DEFAULT_SAFE_ENHANCE } from '../lib/supabase';
 import {
   Sliders,
   Clock,
@@ -23,7 +23,8 @@ import {
   PlusCircle,
   Search,
   Trophy,
-  UserPlus
+  UserPlus,
+  Shield
 } from 'lucide-react';
 
 export default function Admin() {
@@ -69,7 +70,16 @@ export default function Admin() {
   const [isSavingPrizes, setIsSavingPrizes] = useState(false);
   const [prizesSaveSuccess, setPrizesSaveSuccess] = useState(false);
 
-  // 5. 순위표 검색 및 수동 참가자 추가
+  // 5. 안전 강화 설정 (하락 방지 & 횟수 제한)
+  const [probTab, setProbTab] = useState('NORMAL'); // 'NORMAL' | 'SAFE'
+  const [safeMaxCount, setSafeMaxCount] = useState(settings?.safe_enhance?.max_count || 5);
+  const [safeCostText, setSafeCostText] = useState(settings?.safe_enhance?.cost_text || '2 ESTA');
+  const [safeProbs, setSafeProbs] = useState(settings?.safe_enhance?.probabilities || DEFAULT_SAFE_ENHANCE.probabilities);
+  const [activeSafeStage, setActiveSafeStage] = useState(1);
+  const [isSavingSafe, setIsSavingSafe] = useState(false);
+  const [safeSaveSuccess, setSafeSaveSuccess] = useState(false);
+
+  // 6. 순위표 검색 및 수동 참가자 추가
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [manualForm, setManualForm] = useState({
@@ -92,6 +102,14 @@ export default function Admin() {
       setCostText(settings.cost_text || '1 ESTA');
       setAuthPassword(settings.auth_password || '12345678');
       setAdminPassword(settings.admin_password || '12345678');
+
+      if (settings.safe_enhance) {
+        setSafeMaxCount(settings.safe_enhance.max_count ?? 5);
+        setSafeCostText(settings.safe_enhance.cost_text || '2 ESTA');
+        if (settings.safe_enhance.probabilities) {
+          setSafeProbs(settings.safe_enhance.probabilities);
+        }
+      }
 
       if (settings.prizes) {
         setPrizes({
@@ -308,7 +326,33 @@ export default function Admin() {
     }
   };
 
-  // 5. 수동 참가자 기록 직접 추가 핸들러
+  // 5. 안전 강화 전용 저장 핸들러
+  const handleSaveSafeEnhance = async (e) => {
+    e?.preventDefault();
+    sound.playClick();
+    setIsSavingSafe(true);
+
+    try {
+      await updateBoothSettings({
+        safe_enhance: {
+          max_count: Math.max(1, Number(safeMaxCount) || 5),
+          cost_text: safeCostText.trim() || '2 ESTA',
+          probabilities: safeProbs
+        }
+      });
+
+      sound.playSuccess();
+      setSafeSaveSuccess(true);
+      setTimeout(() => setSafeSaveSuccess(false), 3000);
+    } catch (e) {
+      console.error(e);
+      alert('안전 강화 설정 저장 중 오류가 발생했습니다.');
+    } finally {
+      setIsSavingSafe(false);
+    }
+  };
+
+  // 6. 수동 참가자 기록 직접 추가 핸들러
   const handleAddManualScore = async (e) => {
     e?.preventDefault();
     const nick = manualForm.nickname.trim();
@@ -383,6 +427,11 @@ export default function Admin() {
         cost_text: costText.trim() || '1 ESTA',
         stage_probabilities: stageProbs,
         prizes: prizes,
+        safe_enhance: {
+          max_count: Math.max(1, Number(safeMaxCount) || 5),
+          cost_text: safeCostText.trim() || '2 ESTA',
+          probabilities: safeProbs
+        },
         display_success: s2.display.success,
         display_keep: s2.display.keep,
         display_downgrade: s2.display.downgrade,
@@ -681,10 +730,34 @@ export default function Admin() {
           </div>
         </div>
 
-        {/* 펼쳐졌을 때: 단계별 탭 및 슬라이더 편집기 */}
+        {/* 펼쳐졌을 때: 일반 강화 vs 안전 강화 탭 전환 */}
         {isProbExpanded && (
           <div style={{ padding: '20px 20px 24px', borderTop: '1px solid rgba(155, 81, 224, 0.25)' }}>
-            {/* 4개 단계 탭 */}
+            {/* 상단 탭 스위치 */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '14px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => { sound.playClick(); setProbTab('NORMAL'); }}
+                className={`btn ${probTab === 'NORMAL' ? 'btn-purple' : 'btn-glass'}`}
+                style={{ padding: '10px 18px', fontSize: '0.88rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Dice5 className="w-4 h-4" />
+                <span>일반 강화 확률 설정</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { sound.playClick(); setProbTab('SAFE'); }}
+                className={`btn ${probTab === 'SAFE' ? 'btn-cyan' : 'btn-glass'}`}
+                style={{ padding: '10px 18px', fontSize: '0.88rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Shield className="w-4 h-4 text-cyan-300" />
+                <span>🛡️ 안전 강화 조절 탭 (하락 방지 & 횟수 제한)</span>
+              </button>
+            </div>
+
+            {probTab === 'NORMAL' ? (
+              <div>
+                {/* 4개 단계 탭 */}
             <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
               {[1, 2, 3, 4].map((stageNum) => {
                 const isValid = isStageValid(stageNum);
@@ -957,7 +1030,229 @@ export default function Admin() {
                   </>
                 )}
               </button>
-            </div>
+                </div>
+              </div>
+            ) : (
+              /* 2. 🛡️ 안전 강화 설정 화면 */
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                {/* 상단: 판당 최대 사용 횟수 & 참가 비용 */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '14px', background: 'rgba(0, 242, 254, 0.05)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(0, 242, 254, 0.2)' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 800, color: 'var(--aqua-cyan)', marginBottom: '6px' }}>
+                      🛡️ 안전 강화 판당 최대 사용 횟수
+                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <input
+                        type="number"
+                        min={1}
+                        max={50}
+                        value={safeMaxCount}
+                        onChange={(e) => setSafeMaxCount(Math.max(1, Number(e.target.value)))}
+                        style={{
+                          width: '120px',
+                          padding: '8px 12px',
+                          borderRadius: '8px',
+                          background: 'rgba(255, 255, 255, 0.08)',
+                          border: '1px solid rgba(0, 242, 254, 0.4)',
+                          color: '#ffffff',
+                          fontSize: '1rem',
+                          fontWeight: 800
+                        }}
+                      />
+                      <span style={{ fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.7)' }}>회 제한 (기본: 5회)</span>
+                    </div>
+                    <p style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.55)', marginTop: '4px' }}>
+                      ※ 밸런스 붕괴 방지를 위해 참가자 한 판당 사용할 수 있는 횟수를 제한합니다.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 800, color: 'var(--aqua-cyan)', marginBottom: '6px' }}>
+                      안전 강화 비용 문구
+                    </label>
+                    <input
+                      type="text"
+                      value={safeCostText}
+                      onChange={(e) => setSafeCostText(e.target.value)}
+                      placeholder="2 ESTA"
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        background: 'rgba(255, 255, 255, 0.08)',
+                        border: '1px solid rgba(0, 242, 254, 0.4)',
+                        color: '#ffffff',
+                        fontSize: '0.9rem',
+                        fontWeight: 700
+                      }}
+                    />
+                    <p style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.55)', marginTop: '4px' }}>
+                      ※ 메인 화면 안전 강화 버튼에 표시될 금액입니다.
+                    </p>
+                  </div>
+                </div>
+
+                {/* 하락 0% 안내 배너 */}
+                <div style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.4)', display: 'flex', alignItems: 'center', gap: '8px', color: '#6ee7b7', fontSize: '0.85rem', fontWeight: 700 }}>
+                  <Shield className="w-5 h-5 flex-shrink-0" />
+                  <span>안전 강화는 실패하더라도 단계가 절대로 하락하지 않습니다! (하락 확률 = 0%, 유지 확률 = 100 - 성공 확률)</span>
+                </div>
+
+                {/* 4단계 선택 탭 */}
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {[1, 2, 3, 4].map((s) => {
+                    const isActive = activeSafeStage === s;
+                    const curProb = safeProbs[s] || DEFAULT_SAFE_ENHANCE.probabilities[s];
+                    return (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => { sound.playClick(); setActiveSafeStage(s); }}
+                        className={`btn ${isActive ? 'btn-cyan' : 'btn-glass'}`}
+                        style={{
+                          flex: '1 1 140px',
+                          padding: '10px 14px',
+                          fontSize: '0.88rem',
+                          fontWeight: 800,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: '2px'
+                        }}
+                      >
+                        <span>{s}단계 ➜ {s + 1}단계</span>
+                        <span style={{ fontSize: '0.72rem', color: isActive ? '#0f172a' : 'rgba(255, 255, 255, 0.6)' }}>
+                          표시 {curProb?.display_success ?? 60}% / 실제 {curProb?.hidden_success ?? 45}%
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* 활성 단계 확률 수정 카드 */}
+                {(() => {
+                  const cur = safeProbs[activeSafeStage] || DEFAULT_SAFE_ENHANCE.probabilities[activeSafeStage];
+                  const dispSuc = Number(cur?.display_success ?? 60);
+                  const hidSuc = Number(cur?.hidden_success ?? 45);
+
+                  const updateSafeStageProb = (field, val) => {
+                    const clamped = Math.max(0, Math.min(100, Number(val) || 0));
+                    setSafeProbs(prev => ({
+                      ...prev,
+                      [activeSafeStage]: {
+                        ...prev[activeSafeStage],
+                        [field]: clamped
+                      }
+                    }));
+                  };
+
+                  return (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', background: 'rgba(255, 255, 255, 0.03)', padding: '18px', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                      {/* 표시 확률 */}
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                          <Eye className="w-4 h-4 text-emerald-400" />
+                          <span style={{ fontSize: '0.9rem', fontWeight: 800, color: '#ffffff' }}>표시 확률 (화면 노출)</span>
+                        </div>
+                        <div style={{ marginBottom: '10px' }}>
+                          <label style={{ display: 'block', fontSize: '0.8rem', color: '#6ee7b7', marginBottom: '4px', fontWeight: 700 }}>
+                            성공 확률 (%)
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={dispSuc}
+                            onChange={(e) => updateSafeStageProb('display_success', e.target.value)}
+                            style={{
+                              width: '100%',
+                              padding: '8px 12px',
+                              borderRadius: '8px',
+                              background: 'rgba(255, 255, 255, 0.08)',
+                              border: '1px solid rgba(16, 185, 129, 0.4)',
+                              color: '#ffffff',
+                              fontWeight: 800
+                            }}
+                          />
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: 'rgba(255, 255, 255, 0.7)', lineHeight: 1.6 }}>
+                          <div>유지 확률: <strong style={{ color: '#fde68a' }}>{100 - dispSuc}%</strong></div>
+                          <div>하락 확률: <strong style={{ color: '#6ee7b7' }}>0% (절대 하락 없음)</strong></div>
+                        </div>
+                      </div>
+
+                      {/* 실제 확률 */}
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                          <EyeOff className="w-4 h-4 text-purple-400" />
+                          <span style={{ fontSize: '0.9rem', fontWeight: 800, color: '#ffffff' }}>실제 확률 (시스템 적용)</span>
+                        </div>
+                        <div style={{ marginBottom: '10px' }}>
+                          <label style={{ display: 'block', fontSize: '0.8rem', color: '#c084fc', marginBottom: '4px', fontWeight: 700 }}>
+                            실제 성공 확률 (%)
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={hidSuc}
+                            onChange={(e) => updateSafeStageProb('hidden_success', e.target.value)}
+                            style={{
+                              width: '100%',
+                              padding: '8px 12px',
+                              borderRadius: '8px',
+                              background: 'rgba(255, 255, 255, 0.08)',
+                              border: '1px solid rgba(168, 85, 247, 0.4)',
+                              color: '#ffffff',
+                              fontWeight: 800
+                            }}
+                          />
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: 'rgba(255, 255, 255, 0.7)', lineHeight: 1.6 }}>
+                          <div>실제 유지 확률: <strong style={{ color: '#fde68a' }}>{100 - hidSuc}%</strong></div>
+                          <div>실제 하락 확률: <strong style={{ color: '#6ee7b7' }}>0% (절대 하락 없음)</strong></div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* 안전 강화 저장 버튼 */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '6px' }}>
+                  <button
+                    type="button"
+                    onClick={handleSaveSafeEnhance}
+                    disabled={isSavingSafe}
+                    className="btn btn-cyan"
+                    style={{
+                      padding: '12px 24px',
+                      fontSize: '0.92rem',
+                      background: safeSaveSuccess ? 'rgba(16, 185, 129, 0.35)' : undefined,
+                      borderColor: safeSaveSuccess ? '#10b981' : undefined,
+                      color: safeSaveSuccess ? '#6ee7b7' : undefined,
+                      boxShadow: safeSaveSuccess ? '0 0 16px rgba(16, 185, 129, 0.4)' : undefined
+                    }}
+                  >
+                    {isSavingSafe ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-cyan-300" />
+                        <span>안전 강화 저장 중...</span>
+                      </>
+                    ) : safeSaveSuccess ? (
+                      <>
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        <span>✓ 안전 강화 설정 저장 완료!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4 text-cyan-400" />
+                        <span>🛡️ 안전 강화 설정 저장</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

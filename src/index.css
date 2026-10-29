@@ -130,6 +130,7 @@ img, svg, button {
   position: relative;
   overflow: hidden;
   transition: all 0.3s ease;
+  ime-mode: active;
 }
 
 .glass-panel:hover {
@@ -328,6 +329,7 @@ img, svg, button {
   font-family: inherit;
   outline: none;
   transition: all 0.3s ease;
+  ime-mode: active;
 }
 
 .glass-input:focus {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useBooth } from '../context/BoothContext';
 import { sound } from '../lib/sound';
-import { DEFAULT_STAGE_PROBABILITIES } from '../lib/supabase';
+import { DEFAULT_STAGE_PROBABILITIES, DEFAULT_SAFE_ENHANCE } from '../lib/supabase';
 import confetti from 'canvas-confetti';
 import {
   Fish,
@@ -14,7 +14,8 @@ import {
   AlertTriangle,
   Clock,
   ChevronRight,
-  Trophy
+  Trophy,
+  Shield
 } from 'lucide-react';
 
 const ROD_TIERS = {
@@ -42,6 +43,8 @@ export default function MainGame() {
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [enhanceResult, setEnhanceResult] = useState(null);
   const [enhanceCount, setEnhanceCount] = useState(0);
+  const [enhanceMode, setEnhanceMode] = useState('NORMAL'); // 'NORMAL' | 'SAFE'
+  const [safeEnhanceUsed, setSafeEnhanceUsed] = useState(0);
 
   // 타이머 상태
   const [timeLeft, setTimeLeft] = useState(settings?.time_limit || 60);
@@ -148,34 +151,64 @@ export default function MainGame() {
     return stageData;
   };
 
-  // 강화 실행 (1단계에서는 절대 하락 불가)
+  const safeConfig = settings?.safe_enhance || DEFAULT_SAFE_ENHANCE;
+  const safeMaxCount = Number(safeConfig?.max_count) || 5;
+  const safeCost = safeConfig?.cost_text || '2 ESTA';
+  const safeRemaining = Math.max(0, safeMaxCount - safeEnhanceUsed);
+  const isSafeMode = enhanceMode === 'SAFE';
+
+  // 강화 실행 (1단계에서는 절대 하락 불가, 안전 강화 모드 시 하락 0% 방어)
   const handleEnhance = () => {
     if (rodLevel >= 5 || isEnhancing) return;
+
+    if (isSafeMode && safeRemaining <= 0) {
+      sound.playDowngrade();
+      alert(`안전 강화는 판당 최대 ${safeMaxCount}회까지만 사용 가능합니다.`);
+      setEnhanceMode('NORMAL');
+      return;
+    }
 
     sound.playClick();
     setIsEnhancing(true);
     setEnhanceResult(null);
 
     setTimeout(() => {
-      const stageData = getStageProbabilities(rodLevel);
-      const pSuccess = Number(stageData.hidden?.success ?? 25);
-      const pKeep = Number(stageData.hidden?.keep ?? 35);
-      const pDown = Number(stageData.hidden?.downgrade ?? 40);
-      const total = pSuccess + pKeep + pDown;
-
-      const roll = Math.random() * total;
-
       let result = 'KEEP';
-      if (roll < pSuccess) {
-        result = 'SUCCESS';
-      } else if (roll < pSuccess + pKeep) {
-        result = 'KEEP';
+
+      if (isSafeMode) {
+        // [안전 강화]: 하락 절대 없음 (하락 확률 0%)! 오직 성공 또는 유지!
+        const stageSafeProb = safeConfig?.probabilities?.[rodLevel] || DEFAULT_SAFE_ENHANCE.probabilities[rodLevel];
+        const pSuccess = Number(stageSafeProb?.hidden_success ?? 45);
+        const roll = Math.random() * 100;
+
+        if (roll < pSuccess) {
+          result = 'SUCCESS';
+        } else {
+          result = 'SAFE_KEEP';
+        }
+
+        setSafeEnhanceUsed((prev) => prev + 1);
       } else {
-        // [중요 요구사항]: 1단계에서는 하락 못하게 함 (하락 대신 유지 처리)
-        if (rodLevel === 1) {
+        // 일반 강화
+        const stageData = getStageProbabilities(rodLevel);
+        const pSuccess = Number(stageData.hidden?.success ?? 25);
+        const pKeep = Number(stageData.hidden?.keep ?? 35);
+        const pDown = Number(stageData.hidden?.downgrade ?? 40);
+        const total = pSuccess + pKeep + pDown;
+
+        const roll = Math.random() * total;
+
+        if (roll < pSuccess) {
+          result = 'SUCCESS';
+        } else if (roll < pSuccess + pKeep) {
           result = 'KEEP';
         } else {
-          result = 'DOWN';
+          // [중요 요구사항]: 1단계에서는 하락 못하게 함 (하락 대신 유지 처리)
+          if (rodLevel === 1) {
+            result = 'KEEP';
+          } else {
+            result = 'DOWN';
+          }
         }
       }
 
@@ -189,7 +222,7 @@ export default function MainGame() {
         if (nextLv === 5) {
           confetti({ particleCount: 70, spread: 60, origin: { y: 0.6 } });
         }
-      } else if (result === 'KEEP') {
+      } else if (result === 'KEEP' || result === 'SAFE_KEEP') {
         sound.playKeep();
       } else {
         const nextLv = Math.max(1, rodLevel - 1);
@@ -254,6 +287,8 @@ export default function MainGame() {
     setRodLevel(1);
     setEnhanceResult(null);
     setEnhanceCount(0);
+    setSafeEnhanceUsed(0);
+    setEnhanceMode('NORMAL');
     setTimeLeft(settings?.time_limit || 60);
     setIsTimerRunning(false);
     setScoreInput('');
@@ -325,6 +360,12 @@ export default function MainGame() {
                 maxLength={12}
                 autoFocus
                 disabled={isCheckingNick}
+                lang="ko"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                inputMode="text"
+                style={{ imeMode: 'active' }}
               />
               {inputError && (
                 <div style={{ color: '#f87171', fontSize: '0.85rem', marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -373,6 +414,12 @@ export default function MainGame() {
                 }}
                 maxLength={10}
                 autoFocus
+                lang="ko"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                inputMode="text"
+                style={{ imeMode: 'active' }}
               />
             </div>
 
@@ -390,6 +437,12 @@ export default function MainGame() {
                   if (inputError) setInputError('');
                 }}
                 maxLength={10}
+                lang="ko"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                inputMode="text"
+                style={{ imeMode: 'active' }}
               />
             </div>
 
@@ -413,7 +466,7 @@ export default function MainGame() {
         </div>
       )}
 
-      {/* ---------------- 3단계: 낚싯대 강화 (1단계 하락 방지 적용) ---------------- */}
+      {/* ---------------- 3단계: 강화 페이즈 (일반 강화 vs 🛡️ 안전 강화) ---------------- */}
       {step === 3 && (
         <div style={{ marginTop: '10px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
@@ -425,71 +478,159 @@ export default function MainGame() {
             </span>
           </div>
 
+          {/* 강화 모드 선택: 일반 강화 vs 🛡️ 안전 강화 */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '14px' }}>
+            <button
+              type="button"
+              onClick={() => { sound.playClick(); setEnhanceMode('NORMAL'); }}
+              className={`btn ${!isSafeMode ? 'btn-primary' : 'btn-glass'}`}
+              style={{
+                padding: '10px 12px',
+                fontSize: '0.88rem',
+                fontWeight: 800,
+                borderRadius: '10px'
+              }}
+            >
+              일반 강화
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (safeRemaining <= 0) {
+                  sound.playDowngrade();
+                  alert(`안전 강화는 판당 최대 ${safeMaxCount}회까지만 사용 가능합니다. (횟수 소진)`);
+                  return;
+                }
+                sound.playClick();
+                setEnhanceMode('SAFE');
+              }}
+              className={`btn ${isSafeMode ? 'btn-cyan' : 'btn-glass'}`}
+              style={{
+                padding: '10px 12px',
+                fontSize: '0.88rem',
+                fontWeight: 800,
+                borderRadius: '10px',
+                opacity: safeRemaining <= 0 ? 0.45 : 1,
+                border: isSafeMode ? '1.5px solid var(--aqua-cyan)' : undefined,
+                boxShadow: isSafeMode ? '0 0 16px rgba(0, 242, 254, 0.4)' : undefined,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px'
+              }}
+            >
+              <Shield className="w-4 h-4 text-cyan-300" />
+              <span>🛡️ 안전 강화 ({safeRemaining}/{safeMaxCount})</span>
+            </button>
+          </div>
+
           <div
             className="glass-panel"
             style={{
-              padding: '36px 20px',
+              padding: '28px 20px 22px',
               textAlign: 'center',
               marginBottom: '16px',
-              border: `2px solid ${currentRod.color}`,
-              boxShadow: `0 0 25px ${currentRod.color}40`,
+              border: `2px solid ${isSafeMode ? 'var(--aqua-cyan)' : currentRod.color}`,
+              boxShadow: isSafeMode ? '0 0 25px rgba(0, 242, 254, 0.35)' : `0 0 25px ${currentRod.color}40`,
               transition: 'all 0.3s ease'
             }}
           >
+            {isSafeMode && (
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 12px', borderRadius: '12px', background: 'rgba(0, 242, 254, 0.15)', color: 'var(--aqua-cyan)', fontSize: '0.8rem', fontWeight: 800, marginBottom: '8px', border: '1px solid rgba(0, 242, 254, 0.35)' }}>
+                <Shield className="w-3.5 h-3.5" />
+                <span>하락 방지 모드 (하락 0% 고정)</span>
+              </div>
+            )}
+
             <div
               style={{
                 fontSize: '2.6rem',
                 fontWeight: 900,
                 color: currentRod.color,
-                marginBottom: '8px'
+                marginBottom: '4px'
               }}
             >
               {currentRod.name}
             </div>
 
-            {enhanceResult && (
-              <div
-                style={{
-                  marginTop: '16px',
-                  padding: '10px 18px',
-                  borderRadius: '12px',
-                  fontWeight: 800,
-                  fontSize: '1rem',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  background:
-                    enhanceResult === 'SUCCESS'
-                      ? 'rgba(16, 185, 129, 0.25)'
-                      : enhanceResult === 'KEEP'
-                      ? 'rgba(245, 158, 11, 0.25)'
-                      : 'rgba(239, 68, 68, 0.25)',
-                  color:
-                    enhanceResult === 'SUCCESS'
-                      ? '#6ee7b7'
-                      : enhanceResult === 'KEEP'
-                      ? '#fde68a'
-                      : '#fca5a5'
-                }}
-              >
-                {enhanceResult === 'SUCCESS' && <CheckCircle2 className="w-4 h-4" />}
-                {enhanceResult === 'KEEP' && '•'}
-                {enhanceResult === 'DOWN' && <AlertTriangle className="w-4 h-4" />}
-                <span>
-                  {enhanceResult === 'SUCCESS' && '강화 성공 (+1)'}
-                  {enhanceResult === 'KEEP' && '단계 유지'}
-                  {enhanceResult === 'DOWN' && '강화 하락 (-1)'}
-                </span>
-              </div>
-            )}
+            {/* [요청사항 해결]: 높이를 46px로 고정하여 알림이 뜨고 사라질 때 아래 버튼들이 덜컹거리며 위아래로 점핑하지 않음! */}
+            <div
+              style={{
+                height: '46px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginTop: '8px'
+              }}
+            >
+              {enhanceResult && (
+                <div
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '10px',
+                    fontWeight: 800,
+                    fontSize: '0.92rem',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    background:
+                      enhanceResult === 'SUCCESS'
+                        ? 'rgba(16, 185, 129, 0.25)'
+                        : enhanceResult === 'SAFE_KEEP'
+                        ? 'rgba(0, 242, 254, 0.25)'
+                        : enhanceResult === 'KEEP'
+                        ? 'rgba(245, 158, 11, 0.25)'
+                        : 'rgba(239, 68, 68, 0.25)',
+                    color:
+                      enhanceResult === 'SUCCESS'
+                        ? '#6ee7b7'
+                        : enhanceResult === 'SAFE_KEEP'
+                        ? 'var(--aqua-cyan)'
+                        : enhanceResult === 'KEEP'
+                        ? '#fde68a'
+                        : '#fca5a5',
+                    border:
+                      enhanceResult === 'SAFE_KEEP'
+                        ? '1px solid rgba(0, 242, 254, 0.45)'
+                        : undefined
+                  }}
+                >
+                  {enhanceResult === 'SUCCESS' && <CheckCircle2 className="w-4 h-4" />}
+                  {enhanceResult === 'SAFE_KEEP' && <Shield className="w-4 h-4" />}
+                  {enhanceResult === 'KEEP' && '•'}
+                  {enhanceResult === 'DOWN' && <AlertTriangle className="w-4 h-4" />}
+                  <span>
+                    {enhanceResult === 'SUCCESS' && '강화 성공 (+1)'}
+                    {enhanceResult === 'SAFE_KEEP' && '🛡️ 하락 방어! 단계 유지'}
+                    {enhanceResult === 'KEEP' && '단계 유지'}
+                    {enhanceResult === 'DOWN' && '강화 하락 (-1)'}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* 비용 및 명목상 확률 (현재 단계별 확률 반영) */}
+          {/* 비용 및 명목상 확률 */}
           {(() => {
-            const currentStageProb = getStageProbabilities(rodLevel);
-            const dispSuccess = currentStageProb.display?.success ?? 50;
-            const dispKeep = currentStageProb.display?.keep ?? 30;
-            const dispDown = rodLevel === 1 ? 0 : (currentStageProb.display?.downgrade ?? 20);
+            let dispSuccess = 50;
+            let dispKeep = 30;
+            let dispDown = 20;
+            let costLabel = settings?.cost_text || '1 ESTA';
+
+            if (isSafeMode) {
+              const safeStageProb = safeConfig?.probabilities?.[rodLevel] || DEFAULT_SAFE_ENHANCE.probabilities[rodLevel];
+              dispSuccess = safeStageProb?.display_success ?? 60;
+              dispKeep = 100 - dispSuccess;
+              dispDown = 0; // 안전 강화는 하락 0%!
+              costLabel = safeCost;
+            } else {
+              const currentStageProb = getStageProbabilities(rodLevel);
+              dispSuccess = currentStageProb.display?.success ?? 50;
+              dispKeep = currentStageProb.display?.keep ?? 30;
+              dispDown = rodLevel === 1 ? 0 : (currentStageProb.display?.downgrade ?? 20);
+              costLabel = settings?.cost_text || '1 ESTA';
+            }
 
             return (
               <div
@@ -505,13 +646,18 @@ export default function MainGame() {
               >
                 <div>
                   <span style={{ color: 'rgba(255, 255, 255, 0.6)' }}>비용: </span>
-                  <strong style={{ color: 'var(--aqua-cyan)', fontSize: '1rem' }}>{settings?.cost_text || '1 ESTA'}</strong>
+                  <strong style={{ color: 'var(--aqua-cyan)', fontSize: '1rem' }}>{costLabel}</strong>
                 </div>
 
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <span>성공 <strong style={{ color: '#6ee7b7' }}>{dispSuccess}%</strong></span>
                   <span>유지 <strong style={{ color: '#fde68a' }}>{dispKeep}%</strong></span>
-                  <span>하락 <strong style={{ color: '#fca5a5' }}>{dispDown}%</strong></span>
+                  <span>
+                    하락{' '}
+                    <strong style={{ color: dispDown === 0 ? '#6ee7b7' : '#fca5a5' }}>
+                      {dispDown === 0 ? '0% (방어)' : `${dispDown}%`}
+                    </strong>
+                  </span>
                 </div>
               </div>
             );
@@ -521,15 +667,27 @@ export default function MainGame() {
             <button
               onClick={handleEnhance}
               disabled={rodLevel >= 5 || isEnhancing}
-              className="btn btn-primary"
-              style={{ width: '100%', padding: '15px', fontSize: '1.05rem', opacity: rodLevel >= 5 ? 0.6 : 1 }}
+              className={`btn ${isSafeMode ? 'btn-cyan' : 'btn-primary'}`}
+              style={{
+                width: '100%',
+                padding: '15px',
+                fontSize: '1.05rem',
+                opacity: rodLevel >= 5 ? 0.6 : 1,
+                boxShadow: isSafeMode ? '0 0 20px rgba(0, 242, 254, 0.35)' : undefined
+              }}
             >
-              <Zap className={`w-5 h-5 ${isEnhancing ? 'animate-spin' : ''}`} />
+              {isSafeMode ? (
+                <Shield className={`w-5 h-5 ${isEnhancing ? 'animate-spin' : ''}`} />
+              ) : (
+                <Zap className={`w-5 h-5 ${isEnhancing ? 'animate-spin' : ''}`} />
+              )}
               <span>
                 {isEnhancing
                   ? '강화 중...'
                   : rodLevel >= 5
                   ? '최대 단계 달성'
+                  : isSafeMode
+                  ? `🛡️ 안전 강화하기 (${safeCost})`
                   : `강화하기 (${settings?.cost_text || '1 ESTA'})`}
               </span>
             </button>

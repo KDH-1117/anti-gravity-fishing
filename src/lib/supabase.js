@@ -20,6 +20,15 @@ export const DEFAULT_STAGE_PROBABILITIES = {
   }
 };
 
+// 기본 등수별 상품 설정값 (1등~5등)
+export const DEFAULT_PRIZES = {
+  1: '-',
+  2: '-',
+  3: '-',
+  4: '-',
+  5: '-'
+};
+
 // 기본 설정값
 export const DEFAULT_SETTINGS = {
   id: 1,
@@ -32,6 +41,7 @@ export const DEFAULT_SETTINGS = {
   hidden_keep: 35,
   hidden_downgrade: 40,
   stage_probabilities: DEFAULT_STAGE_PROBABILITIES,
+  prizes: DEFAULT_PRIZES,
   auth_password: '12345678',
   admin_password: '12345678'
 };
@@ -93,7 +103,8 @@ export async function getSettings() {
         const merged = {
           ...DEFAULT_SETTINGS,
           ...data,
-          stage_probabilities: data.stage_probabilities || DEFAULT_STAGE_PROBABILITIES
+          stage_probabilities: data.stage_probabilities || DEFAULT_STAGE_PROBABILITIES,
+          prizes: data.prizes || DEFAULT_PRIZES
         };
         localStorage.setItem(LOCAL_STORAGE_SETTINGS_KEY, JSON.stringify(merged));
         return merged;
@@ -110,7 +121,8 @@ export async function getSettings() {
       return {
         ...DEFAULT_SETTINGS,
         ...parsed,
-        stage_probabilities: parsed.stage_probabilities || DEFAULT_STAGE_PROBABILITIES
+        stage_probabilities: parsed.stage_probabilities || DEFAULT_STAGE_PROBABILITIES,
+        prizes: parsed.prizes || DEFAULT_PRIZES
       };
     }
   } catch (e) {

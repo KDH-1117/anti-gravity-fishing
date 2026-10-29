@@ -534,6 +534,32 @@ img, svg, button {
   padding: 20px;
 }
 
+/* 순위표 레이아웃 & 상품 안내 패널 */
+.leaderboard-layout-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (min-width: 960px) {
+  .leaderboard-layout-grid {
+    grid-template-columns: 320px 1fr;
+    gap: 28px;
+  }
+}
+
+.prize-rank-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 0.85rem;
+  letter-spacing: -0.01em;
+}
+
 /* 반응형 모바일 패딩 조정 */
 @media (max-width: 640px) {
   .header-container {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useBooth } from '../context/BoothContext';
 import { sound } from '../lib/sound';
-import { DEFAULT_STAGE_PROBABILITIES } from '../lib/supabase';
+import { DEFAULT_STAGE_PROBABILITIES, DEFAULT_PRIZES } from '../lib/supabase';
 import {
   Sliders,
   Clock,
@@ -18,7 +18,12 @@ import {
   RotateCcw,
   ChevronDown,
   ChevronUp,
-  Loader2
+  Loader2,
+  Gift,
+  PlusCircle,
+  Search,
+  Trophy,
+  UserPlus
 } from 'lucide-react';
 
 export default function Admin() {
@@ -59,6 +64,23 @@ export default function Admin() {
   const [isSavingPassword, setIsSavingPassword] = useState(false);
   const [passwordSuccess, setPasswordSuccess] = useState(false);
 
+  // 4. 등수별 상품 설정 (1등~5등)
+  const [prizes, setPrizes] = useState(settings?.prizes || DEFAULT_PRIZES);
+  const [isSavingPrizes, setIsSavingPrizes] = useState(false);
+  const [prizesSaveSuccess, setPrizesSaveSuccess] = useState(false);
+
+  // 5. 순위표 검색 및 수동 참가자 추가
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [manualForm, setManualForm] = useState({
+    nickname: '',
+    student_id: '',
+    student_name: '',
+    rod_level: 1,
+    score: ''
+  });
+  const [isSubmittingManual, setIsSubmittingManual] = useState(false);
+
   // 전체 저장 상태 및 모달
   const [isSavingAll, setIsSavingAll] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -70,6 +92,16 @@ export default function Admin() {
       setCostText(settings.cost_text || '1 ESTA');
       setAuthPassword(settings.auth_password || '12345678');
       setAdminPassword(settings.admin_password || '12345678');
+
+      if (settings.prizes) {
+        setPrizes({
+          1: settings.prizes[1] || settings.prizes['1'] || '-',
+          2: settings.prizes[2] || settings.prizes['2'] || '-',
+          3: settings.prizes[3] || settings.prizes['3'] || '-',
+          4: settings.prizes[4] || settings.prizes['4'] || '-',
+          5: settings.prizes[5] || settings.prizes['5'] || '-'
+        });
+      }
 
       if (settings.stage_probabilities) {
         const raw = settings.stage_probabilities;
@@ -254,7 +286,84 @@ export default function Admin() {
     }
   };
 
-  // 4. 전체 설정 일괄 저장
+  // 4. 등수별 상품 전용 저장 핸들러
+  const handleSavePrizes = async (e) => {
+    e?.preventDefault();
+    sound.playClick();
+    setIsSavingPrizes(true);
+
+    try {
+      await updateBoothSettings({
+        prizes
+      });
+
+      sound.playSuccess();
+      setPrizesSaveSuccess(true);
+      setTimeout(() => setPrizesSaveSuccess(false), 3000);
+    } catch (e) {
+      console.error(e);
+      alert('상품 설정 저장 중 오류가 발생했습니다.');
+    } finally {
+      setIsSavingPrizes(false);
+    }
+  };
+
+  // 5. 수동 참가자 기록 직접 추가 핸들러
+  const handleAddManualScore = async (e) => {
+    e?.preventDefault();
+    const nick = manualForm.nickname.trim();
+    const stId = manualForm.student_id.trim();
+    const stName = manualForm.student_name.trim();
+    const sc = Number(manualForm.score);
+
+    if (!nick) {
+      alert('닉네임을 입력해주세요.');
+      return;
+    }
+    if (!stId) {
+      alert('학번을 입력해주세요.');
+      return;
+    }
+    if (!stName) {
+      alert('이름을 입력해주세요.');
+      return;
+    }
+    if (manualForm.score === '' || isNaN(sc)) {
+      alert('유효한 최종 점수를 입력해주세요.');
+      return;
+    }
+
+    sound.playClick();
+    setIsSubmittingManual(true);
+
+    try {
+      await recordScore({
+        nickname: nick,
+        student_id: stId,
+        student_name: stName,
+        rod_level: Number(manualForm.rod_level) || 1,
+        score: sc
+      });
+
+      sound.playSuccess();
+      setShowAddModal(false);
+      setManualForm({
+        nickname: '',
+        student_id: '',
+        student_name: '',
+        rod_level: 1,
+        score: ''
+      });
+      alert(`'${nick}' (${stId} ${stName}) 참가자 기록이 성공적으로 추가되었습니다.`);
+    } catch (err) {
+      console.error(err);
+      alert('기록 추가 중 오류가 발생했습니다.');
+    } finally {
+      setIsSubmittingManual(false);
+    }
+  };
+
+  // 6. 전체 설정 일괄 저장
   const handleSaveSettings = async (e) => {
     e?.preventDefault();
 
@@ -273,6 +382,7 @@ export default function Admin() {
         time_limit: Number(timeLimit) || 60,
         cost_text: costText.trim() || '1 ESTA',
         stage_probabilities: stageProbs,
+        prizes: prizes,
         display_success: s2.display.success,
         display_keep: s2.display.keep,
         display_downgrade: s2.display.downgrade,
@@ -852,16 +962,113 @@ export default function Admin() {
         )}
       </div>
 
-      {/* ---------------- 2: 순위표 초기화 & 참가자 명부 관리 ---------------- */}
+      {/* ---------------- 2: 등수별 상품 안내 설정 (1등~5등) ---------------- */}
+      <div className="glass-panel" style={{ padding: '24px 20px', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+          <div>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px', color: '#ffffff' }}>
+              <Gift className="w-5 h-5 text-cyan-400" />
+              <span>등수별 상품 안내 설정 (1등~5등)</span>
+            </h3>
+            <p style={{ fontSize: '0.78rem', color: 'rgba(255, 255, 255, 0.6)', marginTop: '4px' }}>
+              순위표(/scores) 좌측 상품 안내 탭에 실시간으로 표시됩니다. 아직 미정인 등수는 - 로 두시면 됩니다.
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px', marginBottom: '18px' }}>
+          {[
+            { rank: 1, label: '🥇 1등 상품', color: '#fbbf24' },
+            { rank: 2, label: '🥈 2등 상품', color: '#e2e8f0' },
+            { rank: 3, label: '🥉 3등 상품', color: '#f59e0b' },
+            { rank: 4, label: '🎖️ 4등 상품', color: 'var(--aqua-cyan)' },
+            { rank: 5, label: '🎖️ 5등 상품', color: '#93c5fa' }
+          ].map((item) => (
+            <div key={item.rank} style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '12px 14px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 800, color: item.color, marginBottom: '6px' }}>
+                {item.label}
+              </label>
+              <input
+                type="text"
+                value={prizes[item.rank] ?? '-'}
+                onChange={(e) => setPrizes(prev => ({ ...prev, [item.rank]: e.target.value }))}
+                placeholder="미정 시 - 입력 (예: 문화상품권 1만원)"
+                style={{
+                  width: '100%',
+                  padding: '9px 12px',
+                  borderRadius: '8px',
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  color: '#ffffff',
+                  fontSize: '0.9rem',
+                  fontWeight: 600
+                }}
+              />
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <button
+            onClick={handleSavePrizes}
+            disabled={isSavingPrizes}
+            className="btn btn-cyan"
+            style={{
+              padding: '10px 20px',
+              fontSize: '0.9rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              background: prizesSaveSuccess ? 'rgba(16, 185, 129, 0.35)' : undefined,
+              borderColor: prizesSaveSuccess ? '#10b981' : undefined,
+              color: prizesSaveSuccess ? '#6ee7b7' : undefined,
+              boxShadow: prizesSaveSuccess ? '0 0 16px rgba(16, 185, 129, 0.4)' : undefined
+            }}
+          >
+            {isSavingPrizes ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin text-cyan-300" />
+                <span>상품 저장 중...</span>
+              </>
+            ) : prizesSaveSuccess ? (
+              <>
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span>✓ 등수별 상품 저장 완료!</span>
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4 text-cyan-400" />
+                <span>등수별 상품 설정 저장</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* ---------------- 3: 순위표 및 참가자 명부 관리 ---------------- */}
       <div className="glass-panel" style={{ padding: '24px 20px', marginBottom: '20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
           <div>
             <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#ffffff' }}>
               순위표 및 참가자 명부 (총 {scores.length}건)
             </h3>
+            <p style={{ fontSize: '0.78rem', color: 'rgba(255, 255, 255, 0.6)', marginTop: '2px' }}>
+              오입력된 기록은 개별 삭제하거나, 직접 새로운 참가자 기록을 추가할 수 있습니다.
+            </p>
           </div>
 
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => {
+                sound.playClick();
+                setShowAddModal(true);
+              }}
+              className="btn btn-primary"
+              style={{ padding: '8px 14px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <UserPlus className="w-4 h-4 text-cyan-300" />
+              <span>+ 참가자 기록 직접 추가</span>
+            </button>
             <button onClick={exportToCSV} className="btn btn-glass" style={{ padding: '8px 12px', fontSize: '0.8rem', borderColor: '#10b981' }}>
               <Download className="w-4 h-4 text-emerald-400" />
               <span>CSV 다운로드</span>
@@ -875,6 +1082,52 @@ export default function Admin() {
               <span>순위표 전체 초기화</span>
             </button>
           </div>
+        </div>
+
+        {/* 검색 필터 바 */}
+        <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <div style={{ position: 'relative', flex: '1 1 240px', maxWidth: '380px' }}>
+            <Search
+              className="w-4 h-4 text-cyan-400"
+              style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
+            />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="🔍 닉네임, 학번, 이름 검색..."
+              style={{
+                width: '100%',
+                padding: '8px 12px 8px 36px',
+                borderRadius: '8px',
+                background: 'rgba(255, 255, 255, 0.07)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                color: '#ffffff',
+                fontSize: '0.85rem'
+              }}
+            />
+          </div>
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="btn btn-glass"
+              style={{ padding: '6px 12px', fontSize: '0.78rem' }}
+            >
+              검색 초기화
+            </button>
+          )}
+          {searchTerm && (
+            <span style={{ fontSize: '0.8rem', color: 'rgba(255, 255, 255, 0.6)' }}>
+              검색 결과: {scores.filter(row => {
+                const term = searchTerm.trim().toLowerCase();
+                return (
+                  (row.nickname || '').toLowerCase().includes(term) ||
+                  (row.student_id || '').toLowerCase().includes(term) ||
+                  (row.student_name || '').toLowerCase().includes(term)
+                );
+              }).length}건
+            </span>
+          )}
         </div>
 
         {/* 테이블 */}
@@ -894,41 +1147,63 @@ export default function Admin() {
                   <th style={{ padding: '8px 10px' }}>단계</th>
                   <th style={{ padding: '8px 10px' }}>점수</th>
                   <th style={{ padding: '8px 10px' }}>시간</th>
-                  <th style={{ padding: '8px 10px', textAlign: 'center' }}>삭제</th>
+                  <th style={{ padding: '8px 10px', textAlign: 'center' }}>개별 삭제</th>
                 </tr>
               </thead>
               <tbody>
-                {scores.map((row, idx) => (
-                  <tr
-                    key={row.id}
-                    style={{
-                      borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
-                      background: idx % 2 === 0 ? 'rgba(255, 255, 255, 0.02)' : 'transparent'
-                    }}
-                  >
-                    <td style={{ padding: '10px', fontWeight: 800 }}>{idx + 1}</td>
-                    <td style={{ padding: '10px', fontWeight: 700, color: 'var(--aqua-cyan)' }}>{row.nickname}</td>
-                    <td style={{ padding: '10px' }}>{row.student_id}</td>
-                    <td style={{ padding: '10px' }}>{row.student_name}</td>
-                    <td style={{ padding: '10px' }}>{row.rod_level}단계</td>
-                    <td style={{ padding: '10px', fontWeight: 800, color: '#fef08a' }}>{row.score}점</td>
-                    <td style={{ padding: '10px', color: 'rgba(255, 255, 255, 0.5)', fontSize: '0.78rem' }}>
-                      {new Date(row.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </td>
-                    <td style={{ padding: '10px', textAlign: 'center' }}>
-                      <button
-                        onClick={() => {
-                          if (confirm(`'${row.nickname}' 기록을 삭제할까요?`)) {
-                            removeScore(row.id);
-                          }
-                        }}
-                        style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer' }}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {scores
+                  .filter(row => {
+                    const term = searchTerm.trim().toLowerCase();
+                    if (!term) return true;
+                    return (
+                      (row.nickname || '').toLowerCase().includes(term) ||
+                      (row.student_id || '').toLowerCase().includes(term) ||
+                      (row.student_name || '').toLowerCase().includes(term)
+                    );
+                  })
+                  .map((row, idx) => (
+                    <tr
+                      key={row.id}
+                      style={{
+                        borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+                        background: idx % 2 === 0 ? 'rgba(255, 255, 255, 0.02)' : 'transparent'
+                      }}
+                    >
+                      <td style={{ padding: '10px', fontWeight: 800 }}>{idx + 1}</td>
+                      <td style={{ padding: '10px', fontWeight: 700, color: 'var(--aqua-cyan)' }}>{row.nickname}</td>
+                      <td style={{ padding: '10px' }}>{row.student_id}</td>
+                      <td style={{ padding: '10px' }}>{row.student_name}</td>
+                      <td style={{ padding: '10px' }}>{row.rod_level}단계</td>
+                      <td style={{ padding: '10px', fontWeight: 800, color: '#fef08a' }}>{row.score}점</td>
+                      <td style={{ padding: '10px', color: 'rgba(255, 255, 255, 0.5)', fontSize: '0.78rem' }}>
+                        {new Date(row.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </td>
+                      <td style={{ padding: '10px', textAlign: 'center' }}>
+                        <button
+                          onClick={() => {
+                            sound.playClick();
+                            if (confirm(`'${row.nickname}' (${row.student_id} ${row.student_name}) 학생의 점수(${row.score}점) 기록을 삭제하시겠습니까?`)) {
+                              removeScore(row.id);
+                              sound.playDowngrade();
+                            }
+                          }}
+                          className="btn btn-danger"
+                          style={{
+                            padding: '4px 10px',
+                            fontSize: '0.75rem',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            borderRadius: '6px'
+                          }}
+                          title="기록 개별 삭제"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>삭제</span>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>
@@ -1082,6 +1357,191 @@ export default function Admin() {
           )}
         </button>
       </div>
+
+      {/* 참가자 기록 직접 추가 모달 */}
+      {showAddModal && (
+        <div className="modal-overlay">
+          <div
+            className="glass-panel"
+            style={{
+              maxWidth: '440px',
+              width: '100%',
+              padding: '28px 24px',
+              background: 'rgba(10, 25, 47, 0.96)',
+              border: '1.5px solid rgba(0, 242, 254, 0.45)',
+              boxShadow: '0 20px 50px rgba(0, 0, 0, 0.7)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+              <div
+                style={{
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '10px',
+                  background: 'rgba(0, 242, 254, 0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--aqua-cyan)'
+                }}
+              >
+                <UserPlus className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#ffffff' }}>
+                  참가자 기록 직접 추가
+                </h3>
+                <p style={{ fontSize: '0.78rem', color: 'rgba(255, 255, 255, 0.6)' }}>
+                  오입력 정정 또는 수동 참가를 위한 기록 등록
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleAddManualScore} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '6px' }}>
+                  닉네임 <span style={{ color: '#f87171' }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  value={manualForm.nickname}
+                  onChange={(e) => setManualForm(prev => ({ ...prev, nickname: e.target.value }))}
+                  placeholder="예: 낚시마스터"
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    border: '1px solid rgba(255, 255, 255, 0.25)',
+                    color: '#ffffff'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '6px' }}>
+                    학번 (5자리) <span style={{ color: '#f87171' }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={manualForm.student_id}
+                    onChange={(e) => setManualForm(prev => ({ ...prev, student_id: e.target.value }))}
+                    placeholder="예: 10501"
+                    maxLength={5}
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      background: 'rgba(255, 255, 255, 0.08)',
+                      border: '1px solid rgba(255, 255, 255, 0.25)',
+                      color: '#ffffff'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '6px' }}>
+                    이름 <span style={{ color: '#f87171' }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={manualForm.student_name}
+                    onChange={(e) => setManualForm(prev => ({ ...prev, student_name: e.target.value }))}
+                    placeholder="예: 김민수"
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      background: 'rgba(255, 255, 255, 0.08)',
+                      border: '1px solid rgba(255, 255, 255, 0.25)',
+                      color: '#ffffff'
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '6px' }}>
+                    달성 낚싯대 단계
+                  </label>
+                  <select
+                    value={manualForm.rod_level}
+                    onChange={(e) => setManualForm(prev => ({ ...prev, rod_level: Number(e.target.value) }))}
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      background: '#0f172a',
+                      border: '1px solid rgba(255, 255, 255, 0.25)',
+                      color: '#ffffff',
+                      fontSize: '0.85rem'
+                    }}
+                  >
+                    <option value={1}>1단계 (나무 낚싯대)</option>
+                    <option value={2}>2단계 (카본 낚싯대)</option>
+                    <option value={3}>3단계 (티타늄 낚싯대)</option>
+                    <option value={4}>4단계 (플라즈마 낚싯대)</option>
+                    <option value={5}>5단계 (신화 낚싯대)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '6px' }}>
+                    최종 점수 <span style={{ color: '#f87171' }}>*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={manualForm.score}
+                    onChange={(e) => setManualForm(prev => ({ ...prev, score: e.target.value }))}
+                    placeholder="예: 85"
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      background: 'rgba(255, 255, 255, 0.08)',
+                      border: '1px solid rgba(255, 255, 255, 0.25)',
+                      color: '#ffffff'
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  disabled={isSubmittingManual}
+                  className="btn btn-glass"
+                  style={{ flex: 1, padding: '12px' }}
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingManual}
+                  className="btn btn-primary"
+                  style={{ flex: 1, padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                >
+                  {isSubmittingManual ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>추가 중...</span>
+                    </>
+                  ) : (
+                    <span>기록 추가하기</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* 리더보드 초기화 모달 */}
       {resetConfirmModal && (

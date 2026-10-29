@@ -1,5 +1,25 @@
 import { createClient } from '@supabase/supabase-js';
 
+// 기본 단계별 확률 설정값 (1단계~4단계)
+export const DEFAULT_STAGE_PROBABILITIES = {
+  1: {
+    display: { success: 60, keep: 40, downgrade: 0 },
+    hidden: { success: 50, keep: 50, downgrade: 0 }
+  },
+  2: {
+    display: { success: 50, keep: 30, downgrade: 20 },
+    hidden: { success: 35, keep: 35, downgrade: 30 }
+  },
+  3: {
+    display: { success: 40, keep: 30, downgrade: 30 },
+    hidden: { success: 25, keep: 35, downgrade: 40 }
+  },
+  4: {
+    display: { success: 30, keep: 30, downgrade: 40 },
+    hidden: { success: 15, keep: 35, downgrade: 50 }
+  }
+};
+
 // 기본 설정값
 export const DEFAULT_SETTINGS = {
   id: 1,
@@ -11,6 +31,7 @@ export const DEFAULT_SETTINGS = {
   hidden_success: 25,
   hidden_keep: 35,
   hidden_downgrade: 40,
+  stage_probabilities: DEFAULT_STAGE_PROBABILITIES,
   auth_password: '105fish',
   admin_password: '12345678'
 };
@@ -69,8 +90,13 @@ export async function getSettings() {
         .eq('id', 1)
         .single();
       if (!error && data) {
-        localStorage.setItem(LOCAL_STORAGE_SETTINGS_KEY, JSON.stringify(data));
-        return data;
+        const merged = {
+          ...DEFAULT_SETTINGS,
+          ...data,
+          stage_probabilities: data.stage_probabilities || DEFAULT_STAGE_PROBABILITIES
+        };
+        localStorage.setItem(LOCAL_STORAGE_SETTINGS_KEY, JSON.stringify(merged));
+        return merged;
       }
     } catch (e) {
       console.warn('Supabase getSettings fallback to local:', e);
@@ -79,7 +105,14 @@ export async function getSettings() {
 
   try {
     const local = localStorage.getItem(LOCAL_STORAGE_SETTINGS_KEY);
-    if (local) return JSON.parse(local);
+    if (local) {
+      const parsed = JSON.parse(local);
+      return {
+        ...DEFAULT_SETTINGS,
+        ...parsed,
+        stage_probabilities: parsed.stage_probabilities || DEFAULT_STAGE_PROBABILITIES
+      };
+    }
   } catch (e) {
     // fallback
   }

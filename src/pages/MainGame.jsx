@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useBooth } from '../context/BoothContext';
 import { sound } from '../lib/sound';
+import { DEFAULT_STAGE_PROBABILITIES } from '../lib/supabase';
 import confetti from 'canvas-confetti';
 import {
   Fish,
@@ -110,6 +111,16 @@ export default function MainGame() {
     setStep(3);
   };
 
+  // 현재 단계별 확률 조회
+  const getStageProbabilities = (lvl) => {
+    const stageKey = String(lvl);
+    const stageData = settings?.stage_probabilities?.[stageKey] || DEFAULT_STAGE_PROBABILITIES[stageKey] || {
+      display: { success: 50, keep: 30, downgrade: 20 },
+      hidden: { success: 25, keep: 35, downgrade: 40 }
+    };
+    return stageData;
+  };
+
   // 강화 실행 (1단계에서는 절대 하락 불가)
   const handleEnhance = () => {
     if (rodLevel >= 5 || isEnhancing) return;
@@ -119,9 +130,10 @@ export default function MainGame() {
     setEnhanceResult(null);
 
     setTimeout(() => {
-      const pSuccess = Number(settings?.hidden_success) || 25;
-      const pKeep = Number(settings?.hidden_keep) || 35;
-      const pDown = Number(settings?.hidden_downgrade) || 40;
+      const stageData = getStageProbabilities(rodLevel);
+      const pSuccess = Number(stageData.hidden?.success ?? 25);
+      const pKeep = Number(stageData.hidden?.keep ?? 35);
+      const pDown = Number(stageData.hidden?.downgrade ?? 40);
       const total = pSuccess + pKeep + pDown;
 
       const roll = Math.random() * total;
@@ -412,29 +424,38 @@ export default function MainGame() {
             )}
           </div>
 
-          {/* 비용 및 명목상 확률 */}
-          <div
-            className="glass-panel"
-            style={{
-              padding: '14px 18px',
-              marginBottom: '16px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              fontSize: '0.85rem'
-            }}
-          >
-            <div>
-              <span style={{ color: 'rgba(255, 255, 255, 0.6)' }}>비용: </span>
-              <strong style={{ color: 'var(--aqua-cyan)', fontSize: '1rem' }}>{settings?.cost_text || '1 ESTA'}</strong>
-            </div>
+          {/* 비용 및 명목상 확률 (현재 단계별 확률 반영) */}
+          {(() => {
+            const currentStageProb = getStageProbabilities(rodLevel);
+            const dispSuccess = currentStageProb.display?.success ?? 50;
+            const dispKeep = currentStageProb.display?.keep ?? 30;
+            const dispDown = rodLevel === 1 ? 0 : (currentStageProb.display?.downgrade ?? 20);
 
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <span>성공 <strong style={{ color: '#6ee7b7' }}>{settings?.display_success || 50}%</strong></span>
-              <span>유지 <strong style={{ color: '#fde68a' }}>{settings?.display_keep || 30}%</strong></span>
-              <span>하락 <strong style={{ color: '#fca5a5' }}>{rodLevel === 1 ? '0%' : `${settings?.display_downgrade || 20}%`}</strong></span>
-            </div>
-          </div>
+            return (
+              <div
+                className="glass-panel"
+                style={{
+                  padding: '14px 18px',
+                  marginBottom: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  fontSize: '0.85rem'
+                }}
+              >
+                <div>
+                  <span style={{ color: 'rgba(255, 255, 255, 0.6)' }}>비용: </span>
+                  <strong style={{ color: 'var(--aqua-cyan)', fontSize: '1rem' }}>{settings?.cost_text || '1 ESTA'}</strong>
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <span>성공 <strong style={{ color: '#6ee7b7' }}>{dispSuccess}%</strong></span>
+                  <span>유지 <strong style={{ color: '#fde68a' }}>{dispKeep}%</strong></span>
+                  <span>하락 <strong style={{ color: '#fca5a5' }}>{dispDown}%</strong></span>
+                </div>
+              </div>
+            );
+          })()}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <button
@@ -598,23 +619,21 @@ export default function MainGame() {
                 {nickname} : <strong>{submittedScore}점</strong>
               </p>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <button
-                  onClick={() => navigate('/scores')}
-                  className="btn btn-purple"
-                  style={{ width: '100%', padding: '14px' }}
-                >
-                  <Trophy className="w-5 h-5" />
-                  <span>순위표 확인</span>
-                </button>
-
+              <div style={{ marginTop: '20px' }}>
                 <button
                   onClick={handleResetForNext}
-                  className="btn btn-glass"
-                  style={{ width: '100%', padding: '13px' }}
+                  className="btn btn-primary"
+                  style={{
+                    width: '100%',
+                    padding: '16px',
+                    fontSize: '1.2rem',
+                    fontWeight: 800,
+                    borderRadius: '16px',
+                    boxShadow: '0 8px 30px rgba(0, 242, 254, 0.4)'
+                  }}
                 >
-                  <RotateCcw className="w-4 h-4" />
-                  <span>다음 참가자</span>
+                  <RotateCcw className="w-5 h-5" />
+                  <span>처음으로 가기</span>
                 </button>
               </div>
             </div>

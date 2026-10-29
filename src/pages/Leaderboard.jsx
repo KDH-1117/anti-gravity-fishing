@@ -1,15 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useBooth } from '../context/BoothContext';
-import {
-  Crown,
-  Medal,
-  Search,
-  Fish
-} from 'lucide-react';
+import { Crown, Medal } from 'lucide-react';
 
 export default function Leaderboard() {
-  const { scores, refreshScores, navigate } = useBooth();
-  const [searchTerm, setSearchTerm] = useState('');
+  const { scores, refreshScores } = useBooth();
 
   // 2.5초 주기 백그라운드 자동 폴링
   useEffect(() => {
@@ -22,60 +16,30 @@ export default function Leaderboard() {
     return () => clearInterval(interval);
   }, [refreshScores]);
 
-  const filteredScores = scores.filter((item) =>
-    (item.nickname || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const top1 = filteredScores[0];
-  const top2 = filteredScores[1];
-  const top3 = filteredScores[2];
-  const restScores = filteredScores.slice(3); // 4위부터 끝까지
+  const top1 = scores[0];
+  const top2 = scores[1];
+  const top3 = scores[2];
+  const restScores = scores.slice(3); // 4위부터 끝까지
 
   return (
-    <div style={{ maxWidth: '720px', margin: '0 auto', width: '100%', padding: '24px 16px 80px' }}>
-      {/* 헤더 */}
-      <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+    <div style={{ maxWidth: '720px', margin: '0 auto', width: '100%', padding: '36px 16px 80px' }}>
+      {/* 헤더: 검색 및 버튼 없이 오직 순위표 타이틀만 간결하게 */}
+      <div style={{ textAlign: 'center', marginBottom: '32px' }}>
         <h1
           style={{
-            fontSize: '2.4rem',
+            fontSize: '2.6rem',
             fontWeight: 900,
-            marginBottom: '14px',
             color: '#ffffff',
-            letterSpacing: '-0.02em'
+            letterSpacing: '-0.02em',
+            textShadow: '0 4px 25px rgba(0, 242, 254, 0.35)'
           }}
         >
           순위표
         </h1>
-
-        {/* 검색 및 낚시하기 */}
-        <div style={{ maxWidth: '440px', margin: '0 auto', display: 'flex', gap: '8px' }}>
-          <div style={{ position: 'relative', flex: 1 }}>
-            <input
-              type="text"
-              className="glass-input"
-              placeholder="닉네임 검색"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{ paddingLeft: '40px', height: '44px', fontSize: '0.95rem' }}
-            />
-            <Search
-              className="w-4 h-4 text-gray-400"
-              style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }}
-            />
-          </div>
-          <button
-            onClick={() => navigate('/')}
-            className="btn btn-primary"
-            style={{ padding: '0 18px', height: '44px', whiteSpace: 'nowrap', fontSize: '0.9rem' }}
-          >
-            <Fish className="w-4 h-4" />
-            <span>낚시하기</span>
-          </button>
-        </div>
       </div>
 
       {/* ---------------- 올림픽 단상 레이아웃 (2등 | 1등 | 3등) ---------------- */}
-      {filteredScores.length > 0 && !searchTerm && (
+      {scores.length > 0 && (
         <div
           style={{
             display: 'flex',
@@ -148,43 +112,65 @@ export default function Leaderboard() {
                 minHeight: '245px',
                 padding: '24px 14px 18px',
                 textAlign: 'center',
-                background: 'linear-gradient(180deg, rgba(255, 215, 0, 0.2) 0%, rgba(245, 158, 11, 0.1) 100%)',
-                border: '2px solid rgba(255, 215, 0, 0.75)',
-                boxShadow: '0 12px 35px rgba(255, 215, 0, 0.35)',
+                background: 'linear-gradient(180deg, rgba(245, 158, 11, 0.22) 0%, rgba(217, 119, 6, 0.08) 100%)',
+                border: '2px solid rgba(251, 191, 36, 0.75)',
+                boxShadow: '0 12px 35px rgba(245, 158, 11, 0.35)',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
-                transform: 'translateY(-10px)'
+                position: 'relative'
               }}
             >
               <div>
                 <div
                   style={{
-                    width: '52px',
-                    height: '52px',
+                    position: 'absolute',
+                    top: '-16px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: 'linear-gradient(135deg, #fbbf24 0%, #d97706 100%)',
+                    borderRadius: '20px',
+                    padding: '3px 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    color: '#0f172a',
+                    fontWeight: 900,
+                    fontSize: '0.75rem',
+                    boxShadow: '0 4px 12px rgba(245, 158, 11, 0.5)'
+                  }}
+                >
+                  <Crown className="w-3.5 h-3.5 fill-current" />
+                  <span>CHAMPION</span>
+                </div>
+
+                <div
+                  style={{
+                    width: '50px',
+                    height: '50px',
                     borderRadius: '50%',
-                    background: 'linear-gradient(135deg, #ffd700, #f59e0b)',
-                    color: '#000000',
+                    background: 'linear-gradient(135deg, #fef08a 0%, #f59e0b 100%)',
+                    color: '#78350f',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    margin: '0 auto 8px',
-                    boxShadow: '0 0 22px rgba(255, 215, 0, 0.6)'
+                    margin: '6px auto 8px',
+                    boxShadow: '0 0 20px rgba(251, 191, 36, 0.6)'
                   }}
                 >
-                  <Crown className="w-7 h-7" />
+                  <Crown className="w-6 h-6 fill-current" />
                 </div>
-                <div style={{ fontSize: '0.9rem', fontWeight: 900, color: '#ffd700' }}>1등</div>
+                <div style={{ fontSize: '0.95rem', fontWeight: 900, color: '#fbbf24' }}>1등</div>
                 <div style={{ fontSize: '1.35rem', fontWeight: 900, color: '#ffffff', margin: '4px 0 2px' }}>
                   {top1.nickname}
                 </div>
-                <div style={{ fontSize: '0.8rem', color: 'rgba(255, 255, 255, 0.75)' }}>
+                <div style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.7)' }}>
                   {top1.rod_level}단계
                 </div>
               </div>
-              <div style={{ fontSize: '2.4rem', fontWeight: 900, color: '#ffd700', marginTop: '10px' }}>
+              <div style={{ fontSize: '2.4rem', fontWeight: 900, color: '#fbbf24', marginTop: '10px' }}>
                 {top1.score}
-                <span style={{ fontSize: '0.95rem', marginLeft: '2px' }}>점</span>
+                <span style={{ fontSize: '0.95rem', marginLeft: '3px' }}>점</span>
               </div>
             </div>
           )}
@@ -196,12 +182,12 @@ export default function Leaderboard() {
               style={{
                 flex: '1 1 0',
                 maxWidth: '220px',
-                minHeight: '175px',
+                minHeight: '180px',
                 padding: '18px 12px 14px',
                 textAlign: 'center',
-                background: 'linear-gradient(180deg, rgba(205, 127, 50, 0.12) 0%, rgba(180, 83, 9, 0.06) 100%)',
-                border: '1.5px solid rgba(205, 127, 50, 0.45)',
-                boxShadow: '0 6px 20px rgba(0, 0, 0, 0.25)',
+                background: 'linear-gradient(180deg, rgba(180, 83, 9, 0.15) 0%, rgba(146, 64, 14, 0.05) 100%)',
+                border: '1.5px solid rgba(217, 119, 6, 0.45)',
+                boxShadow: '0 8px 25px rgba(0, 0, 0, 0.3)',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between'
@@ -213,26 +199,26 @@ export default function Leaderboard() {
                     width: '38px',
                     height: '38px',
                     borderRadius: '50%',
-                    background: '#cd7f32',
+                    background: '#d97706',
                     color: '#ffffff',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     margin: '0 auto 8px',
-                    boxShadow: '0 0 15px rgba(205, 127, 50, 0.4)'
+                    boxShadow: '0 0 15px rgba(217, 119, 6, 0.4)'
                   }}
                 >
                   <Medal className="w-4 h-4" />
                 </div>
-                <div style={{ fontSize: '0.85rem', fontWeight: 900, color: '#fed7aa' }}>3등</div>
-                <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#ffffff', margin: '4px 0 2px' }}>
+                <div style={{ fontSize: '0.85rem', fontWeight: 900, color: '#f59e0b' }}>3등</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#ffffff', margin: '4px 0 2px' }}>
                   {top3.nickname}
                 </div>
                 <div style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.6)' }}>
                   {top3.rod_level}단계
                 </div>
               </div>
-              <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#fed7aa', marginTop: '10px' }}>
+              <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#f59e0b', marginTop: '10px' }}>
                 {top3.score}
                 <span style={{ fontSize: '0.85rem', marginLeft: '2px' }}>점</span>
               </div>
@@ -245,21 +231,18 @@ export default function Leaderboard() {
 
       {/* ---------------- 4등 이하 리스트 ---------------- */}
       <div className="glass-panel" style={{ padding: '20px 16px' }}>
-        {filteredScores.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '36px 0', color: 'rgba(255, 255, 255, 0.5)' }}>
-            <p style={{ fontSize: '0.95rem', marginBottom: '14px' }}>
-              {searchTerm ? '검색된 참가자가 없습니다.' : '등록된 점수가 없습니다.'}
+        {scores.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(255, 255, 255, 0.5)' }}>
+            <p style={{ fontSize: '1rem', color: 'rgba(255, 255, 255, 0.6)' }}>
+              등록된 점수가 없습니다.
             </p>
-            <button onClick={() => navigate('/')} className="btn btn-primary" style={{ padding: '10px 18px', fontSize: '0.9rem' }}>
-              낚시 시작하기
-            </button>
           </div>
         ) : (
           <div>
             {/* 4위부터 차례대로 렌더링 */}
             {restScores.map((record, index) => {
               const rank = index + 4; // 4등부터 시작
-              const isHighlight = rank === 4 || rank === 5; // [요청사항]: 4등, 5등까지만 이펙트 살짝 넣음
+              const isHighlight = rank === 4 || rank === 5; // 4등, 5등까지만 이펙트 살짝 넣음
 
               return (
                 <div

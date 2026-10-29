@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useBooth } from '../context/BoothContext';
 import { sound } from '../lib/sound';
+import { DEFAULT_STAGE_PROBABILITIES } from '../lib/supabase';
 import {
   Sliders,
   Clock,
@@ -15,7 +16,9 @@ import {
   Lock,
   KeyRound,
   AlertTriangle,
-  RotateCcw
+  RotateCcw,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 
 export default function Admin() {
@@ -39,17 +42,12 @@ export default function Admin() {
   const [timeLimit, setTimeLimit] = useState(settings?.time_limit || 60);
   const [costText, setCostText] = useState(settings?.cost_text || '1 ESTA');
 
-  // 2. 명목상(디스플레이) 확률
-  const [displaySuccess, setDisplaySuccess] = useState(settings?.display_success || 50);
-  const [displayKeep, setDisplayKeep] = useState(settings?.display_keep || 30);
-  const [displayDowngrade, setDisplayDowngrade] = useState(settings?.display_downgrade || 20);
+  // 2. 단계별 확률 상태 (접힘/펼침 제어)
+  const [isProbExpanded, setIsProbExpanded] = useState(false); // [요청사항]: 접혀있다가 펼칠 수 있게 (기본 접힘)
+  const [activeStage, setActiveStage] = useState(1); // 1, 2, 3, 4
+  const [stageProbs, setStageProbs] = useState(DEFAULT_STAGE_PROBABILITIES);
 
-  // 3. 실제(Hidden) 확률
-  const [hiddenSuccess, setHiddenSuccess] = useState(settings?.hidden_success || 25);
-  const [hiddenKeep, setHiddenKeep] = useState(settings?.hidden_keep || 35);
-  const [hiddenDowngrade, setHiddenDowngrade] = useState(settings?.hidden_downgrade || 40);
-
-  // 4. 비밀번호 관리
+  // 3. 비밀번호 관리
   const [authPassword, setAuthPassword] = useState(settings?.auth_password || '105fish');
   const [adminPassword, setAdminPassword] = useState(settings?.admin_password || '12345678');
 
@@ -59,25 +57,65 @@ export default function Admin() {
   const [probError, setProbError] = useState('');
   const [resetConfirmModal, setResetConfirmModal] = useState(false);
 
-  // 확률 총합 계산
-  const displayTotal = displaySuccess + displayKeep + displayDowngrade;
-  const hiddenTotal = hiddenSuccess + hiddenKeep + hiddenDowngrade;
-  const isProbValid = displayTotal === 100 && hiddenTotal === 100;
-
   useEffect(() => {
     if (settings) {
       setTimeLimit(settings.time_limit || 60);
       setCostText(settings.cost_text || '1 ESTA');
-      setDisplaySuccess(settings.display_success || 50);
-      setDisplayKeep(settings.display_keep || 30);
-      setDisplayDowngrade(settings.display_downgrade || 20);
-      setHiddenSuccess(settings.hidden_success || 25);
-      setHiddenKeep(settings.hidden_keep || 35);
-      setHiddenDowngrade(settings.hidden_downgrade || 40);
       setAuthPassword(settings.auth_password || '105fish');
       setAdminPassword(settings.admin_password || '12345678');
+
+      if (settings.stage_probabilities) {
+        setStageProbs({
+          1: { ...DEFAULT_STAGE_PROBABILITIES[1], ...(settings.stage_probabilities[1] || settings.stage_probabilities['1']) },
+          2: { ...DEFAULT_STAGE_PROBABILITIES[2], ...(settings.stage_probabilities[2] || settings.stage_probabilities['2']) },
+          3: { ...DEFAULT_STAGE_PROBABILITIES[3], ...(settings.stage_probabilities[3] || settings.stage_probabilities['3']) },
+          4: { ...DEFAULT_STAGE_PROBABILITIES[4], ...(settings.stage_probabilities[4] || settings.stage_probabilities['4']) }
+        });
+      }
     }
   }, [settings]);
+
+  // 확률 총합 계산 및 유효성 검증
+  const getStageTotal = (stage, type) => {
+    const s = stageProbs[stage] || DEFAULT_STAGE_PROBABILITIES[stage];
+    const data = s[type] || { success: 0, keep: 0, downgrade: 0 };
+    return (Number(data.success) || 0) + (Number(data.keep) || 0) + (Number(data.downgrade) || 0);
+  };
+
+  const isStageValid = (stage) => {
+    return getStageTotal(stage, 'display') === 100 && getStageTotal(stage, 'hidden') === 100;
+  };
+
+  const invalidStageInfo = [1, 2, 3, 4]
+    .map((s) => {
+      const disp = getStageTotal(s, 'display');
+      const hid = getStageTotal(s, 'hidden');
+      if (disp !== 100 || hid !== 100) {
+        return `${s}단계(표시: ${disp}%, 실제: ${hid}%)`;
+      }
+      return null;
+    })
+    .filter(Boolean);
+
+  const isAllStagesValid = invalidStageInfo.length === 0;
+
+  // 특정 단계의 확률 변경
+  const updateStageProb = (stage, type, field, val) => {
+    const num = Math.max(0, Math.min(100, Number(val) || 0));
+    setStageProbs((prev) => {
+      const current = prev[stage] || DEFAULT_STAGE_PROBABILITIES[stage];
+      return {
+        ...prev,
+        [stage]: {
+          ...current,
+          [type]: {
+            ...current[type],
+            [field]: stage === 1 && field === 'downgrade' ? 0 : num
+          }
+        }
+      };
+    });
+  };
 
   // 관리자 로그인
   const handleAdminLoginSubmit = (e) => {
@@ -95,24 +133,27 @@ export default function Admin() {
     }
   };
 
-  // 확률 전용 저장 핸들러 (100% 검증 필수)
+  // 단계별 확률 전용 저장 핸들러 (전체 단계 100% 검증)
   const handleSaveProbabilities = async () => {
-    if (!isProbValid) {
+    if (!isAllStagesValid) {
       sound.playDowngrade();
-      setProbError(`확률 합계가 100%가 아닙니다. (표시: ${displayTotal}%, 실제: ${hiddenTotal}%)`);
+      setProbError(`확률 합계가 100%가 아닌 단계가 있습니다: ${invalidStageInfo.join(', ')}`);
       return;
     }
 
     sound.playClick();
     setProbError('');
 
+    const s2 = stageProbs[2] || DEFAULT_STAGE_PROBABILITIES[2];
     await updateBoothSettings({
-      display_success: displaySuccess,
-      display_keep: displayKeep,
-      display_downgrade: displayDowngrade,
-      hidden_success: hiddenSuccess,
-      hidden_keep: hiddenKeep,
-      hidden_downgrade: hiddenDowngrade
+      stage_probabilities: stageProbs,
+      // 이전 버전 호환 필드
+      display_success: s2.display.success,
+      display_keep: s2.display.keep,
+      display_downgrade: s2.display.downgrade,
+      hidden_success: s2.hidden.success,
+      hidden_keep: s2.hidden.keep,
+      hidden_downgrade: s2.hidden.downgrade
     });
 
     sound.playSuccess();
@@ -124,23 +165,25 @@ export default function Admin() {
   const handleSaveSettings = async (e) => {
     e?.preventDefault();
 
-    if (!isProbValid) {
+    if (!isAllStagesValid) {
       sound.playDowngrade();
-      alert(`확률의 합계가 100%가 되어야 저장할 수 있습니다.\n현재 - 표시 확률: ${displayTotal}%, 실제 확률: ${hiddenTotal}%`);
+      alert(`모든 단계의 확률 합계가 100%가 되어야 저장할 수 있습니다.\n오류 단계: ${invalidStageInfo.join(', ')}`);
       return;
     }
 
     sound.playClick();
 
+    const s2 = stageProbs[2] || DEFAULT_STAGE_PROBABILITIES[2];
     const newConfig = {
       time_limit: Number(timeLimit) || 60,
       cost_text: costText.trim() || '1 ESTA',
-      display_success: Number(displaySuccess) || 0,
-      display_keep: Number(displayKeep) || 0,
-      display_downgrade: Number(displayDowngrade) || 0,
-      hidden_success: Number(hiddenSuccess) || 0,
-      hidden_keep: Number(hiddenKeep) || 0,
-      hidden_downgrade: Number(hiddenDowngrade) || 0,
+      stage_probabilities: stageProbs,
+      display_success: s2.display.success,
+      display_keep: s2.display.keep,
+      display_downgrade: s2.display.downgrade,
+      hidden_success: s2.hidden.success,
+      hidden_keep: s2.hidden.keep,
+      hidden_downgrade: s2.hidden.downgrade,
       auth_password: authPassword.trim() || '105fish',
       admin_password: adminPassword.trim() || '12345678'
     };
@@ -209,15 +252,14 @@ export default function Admin() {
           style={{
             padding: '36px 28px',
             textAlign: 'center',
-            background: 'rgba(10, 25, 47, 0.95)',
-            border: '1px solid rgba(155, 81, 224, 0.5)'
+            border: '1px solid rgba(155, 81, 224, 0.4)'
           }}
         >
           <div
             style={{
-              width: '56px',
-              height: '56px',
-              borderRadius: '50%',
+              width: '54px',
+              height: '54px',
+              borderRadius: '16px',
               background: 'rgba(155, 81, 224, 0.2)',
               border: '1px solid rgba(155, 81, 224, 0.5)',
               display: 'flex',
@@ -226,7 +268,7 @@ export default function Admin() {
               margin: '0 auto 16px'
             }}
           >
-            <Lock className="w-7 h-7 text-purple-300" />
+            <Lock className="w-6 h-6 text-purple-300" />
           </div>
 
           <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '6px' }}>
@@ -271,6 +313,11 @@ export default function Admin() {
     );
   }
 
+  // 활성 단계의 데이터
+  const curStageData = stageProbs[activeStage] || DEFAULT_STAGE_PROBABILITIES[activeStage];
+  const activeDispTotal = getStageTotal(activeStage, 'display');
+  const activeHidTotal = getStageTotal(activeStage, 'hidden');
+
   // ---------------- 관리자 인증 완료 화면 ----------------
   return (
     <div style={{ maxWidth: '820px', margin: '0 auto', width: '100%', padding: '24px 16px 80px' }}>
@@ -314,166 +361,352 @@ export default function Admin() {
         </div>
       )}
 
-      {/* ---------------- 1: 확률 조작 시스템 + 밑에 전용 저장 버튼 (100% 검증) ---------------- */}
-      <div className="glass-panel" style={{ padding: '24px 20px', marginBottom: '20px', border: '1px solid rgba(155, 81, 224, 0.4)' }}>
-        <h3 style={{ fontSize: '1.15rem', fontWeight: 800, marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Dice5 className="w-5 h-5 text-purple-400" />
-          <span>낚싯대 강화 확률 조작 시스템</span>
-        </h3>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
-          {/* 화면 표시용 */}
-          <div className="glass-panel" style={{ padding: '16px', background: 'rgba(15, 23, 42, 0.6)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--aqua-cyan)', fontWeight: 800, marginBottom: '12px', fontSize: '0.9rem' }}>
-              <Eye className="w-4 h-4" />
-              <span>화면 표시용 확률</span>
+      {/* ---------------- 1: 단계별 확률 조작 시스템 (접힘/펼침 지원) ---------------- */}
+      <div
+        className="glass-panel"
+        style={{
+          marginBottom: '20px',
+          border: '1px solid rgba(155, 81, 224, 0.45)',
+          overflow: 'hidden'
+        }}
+      >
+        {/* 접기/펼치기 클릭 가능한 헤더 */}
+        <div
+          onClick={() => {
+            sound.playClick();
+            setIsProbExpanded(!isProbExpanded);
+          }}
+          style={{
+            padding: '18px 20px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            background: isProbExpanded ? 'rgba(155, 81, 224, 0.12)' : 'rgba(255, 255, 255, 0.03)',
+            transition: 'background 0.2s ease'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div
+              style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '10px',
+                background: 'rgba(155, 81, 224, 0.2)',
+                border: '1px solid rgba(155, 81, 224, 0.5)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              <Dice5 className="w-5 h-5 text-purple-300" />
             </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '3px' }}>
-                  <span>성공</span>
-                  <strong>{displaySuccess}%</strong>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={displaySuccess}
-                  onChange={(e) => setDisplaySuccess(Number(e.target.value))}
-                  style={{ width: '100%', accentColor: '#10b981' }}
-                />
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#ffffff', margin: 0 }}>
+                  단계별 강화 확률 조작 시스템
+                </h3>
+                <span
+                  style={{
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: '8px',
+                    background: isAllStagesValid ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                    color: isAllStagesValid ? '#6ee7b7' : '#fca5a5',
+                    border: `1px solid ${isAllStagesValid ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`
+                  }}
+                >
+                  {isAllStagesValid ? '전체 정상 (100%)' : '합계 100% 오류'}
+                </span>
               </div>
-
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '3px' }}>
-                  <span>유지</span>
-                  <strong>{displayKeep}%</strong>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={displayKeep}
-                  onChange={(e) => setDisplayKeep(Number(e.target.value))}
-                  style={{ width: '100%', accentColor: '#f59e0b' }}
-                />
-              </div>
-
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '3px' }}>
-                  <span>하락 (2단계부터 적용)</span>
-                  <strong>{displayDowngrade}%</strong>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={displayDowngrade}
-                  onChange={(e) => setDisplayDowngrade(Number(e.target.value))}
-                  style={{ width: '100%', accentColor: '#ef4444' }}
-                />
-              </div>
-
-              <div style={{ textAlign: 'right', fontSize: '0.8rem', fontWeight: 700, color: displayTotal === 100 ? '#6ee7b7' : '#f87171' }}>
-                합계: {displayTotal}% {displayTotal === 100 ? '(정상)' : '(100% 필요)'}
-              </div>
+              <p style={{ fontSize: '0.8rem', color: 'rgba(255, 255, 255, 0.6)', margin: '4px 0 0' }}>
+                각 강화 단계(1➜2, 2➜3, 3➜4, 4➜5)별로 노출 확률과 실제 확률을 개별 설정합니다.
+              </p>
             </div>
           </div>
 
-          {/* 실제 Hidden */}
-          <div className="glass-panel" style={{ padding: '16px', background: 'rgba(88, 28, 135, 0.2)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#d8b4fe', fontWeight: 800, marginBottom: '12px', fontSize: '0.9rem' }}>
-              <EyeOff className="w-4 h-4 text-purple-300" />
-              <span>실제 (Hidden) 확률</span>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '3px' }}>
-                  <span>실제 성공</span>
-                  <strong>{hiddenSuccess}%</strong>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={hiddenSuccess}
-                  onChange={(e) => setHiddenSuccess(Number(e.target.value))}
-                  style={{ width: '100%', accentColor: '#10b981' }}
-                />
-              </div>
-
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '3px' }}>
-                  <span>실제 유지</span>
-                  <strong>{hiddenKeep}%</strong>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={hiddenKeep}
-                  onChange={(e) => setHiddenKeep(Number(e.target.value))}
-                  style={{ width: '100%', accentColor: '#f59e0b' }}
-                />
-              </div>
-
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '3px' }}>
-                  <span>실제 하락 (2단계부터 적용)</span>
-                  <strong>{hiddenDowngrade}%</strong>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={hiddenDowngrade}
-                  onChange={(e) => setHiddenDowngrade(Number(e.target.value))}
-                  style={{ width: '100%', accentColor: '#ef4444' }}
-                />
-              </div>
-
-              <div style={{ textAlign: 'right', fontSize: '0.8rem', fontWeight: 700, color: hiddenTotal === 100 ? '#6ee7b7' : '#f87171' }}>
-                합계: {hiddenTotal}% {hiddenTotal === 100 ? '(정상)' : '(100% 필요)'}
-              </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.7)', fontWeight: 600 }}>
+              {isProbExpanded ? '접기' : '펼치기'}
+            </span>
+            <div
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.08)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              {isProbExpanded ? <ChevronUp className="w-4 h-4 text-purple-300" /> : <ChevronDown className="w-4 h-4 text-purple-300" />}
             </div>
           </div>
         </div>
 
-        {/* [요청사항]: 확률 조작 밑에 저장 버튼 + 100% 미충족 시 작동 차단 */}
-        <div style={{ marginTop: '18px', paddingTop: '16px', borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>
-          {!isProbValid && (
-            <div style={{ color: '#f87171', fontSize: '0.85rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-              <span>
-                표시 확률({displayTotal}%)과 실제 확률({hiddenTotal}%)의 총합이 각각 100%여야 저장할 수 있습니다.
-              </span>
-            </div>
-          )}
+        {/* 펼쳐졌을 때: 단계별 탭 및 슬라이더 편집기 */}
+        {isProbExpanded && (
+          <div style={{ padding: '20px 20px 24px', borderTop: '1px solid rgba(155, 81, 224, 0.25)' }}>
+            {/* 4개 단계 탭 */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
+              {[1, 2, 3, 4].map((stageNum) => {
+                const isValid = isStageValid(stageNum);
+                const isActive = activeStage === stageNum;
+                const stageName = `${stageNum}단계 ➜ ${stageNum + 1}단계`;
 
-          {probSaveSuccess && (
-            <div style={{ color: '#6ee7b7', fontSize: '0.85rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <CheckCircle2 className="w-4 h-4" />
-              <span>확률 설정이 정상 저장되었습니다!</span>
+                return (
+                  <button
+                    key={stageNum}
+                    type="button"
+                    onClick={() => {
+                      sound.playClick();
+                      setActiveStage(stageNum);
+                    }}
+                    className={`btn ${isActive ? 'btn-primary' : 'btn-glass'}`}
+                    style={{
+                      flex: '1 1 150px',
+                      padding: '12px 14px',
+                      fontSize: '0.88rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      borderColor: isActive ? 'var(--aqua-cyan)' : isValid ? 'rgba(255, 255, 255, 0.15)' : 'rgba(239, 68, 68, 0.5)'
+                    }}
+                  >
+                    <span style={{ fontWeight: 800 }}>{stageName}</span>
+                    <span
+                      style={{
+                        fontSize: '0.7rem',
+                        padding: '1px 6px',
+                        borderRadius: '6px',
+                        background: isValid ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)',
+                        color: isValid ? '#6ee7b7' : '#fca5a5'
+                      }}
+                    >
+                      {isValid ? '100%' : '오류'}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-          )}
 
-          <button
-            onClick={handleSaveProbabilities}
-            disabled={!isProbValid}
-            className="btn btn-purple"
-            style={{
-              padding: '12px 24px',
-              fontSize: '0.95rem',
-              opacity: isProbValid ? 1 : 0.45,
-              cursor: isProbValid ? 'pointer' : 'not-allowed'
-            }}
-          >
-            <Save className="w-4 h-4" />
-            <span>확률 설정 저장</span>
-          </button>
-        </div>
+            {/* 현재 선택된 단계의 확률 조작 카드 */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+              {/* 화면 표시용 */}
+              <div className="glass-panel" style={{ padding: '16px', background: 'rgba(15, 23, 42, 0.6)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--aqua-cyan)', fontWeight: 800, fontSize: '0.9rem' }}>
+                    <Eye className="w-4 h-4" />
+                    <span>화면 표시용 ({activeStage}단계 ➜ {activeStage + 1}단계)</span>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '3px' }}>
+                      <span>성공</span>
+                      <strong style={{ color: '#6ee7b7' }}>{curStageData.display.success}%</strong>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={curStageData.display.success}
+                      onChange={(e) => updateStageProb(activeStage, 'display', 'success', e.target.value)}
+                      style={{ width: '100%', accentColor: '#10b981' }}
+                    />
+                  </div>
+
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '3px' }}>
+                      <span>유지</span>
+                      <strong style={{ color: '#fde68a' }}>{curStageData.display.keep}%</strong>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={curStageData.display.keep}
+                      onChange={(e) => updateStageProb(activeStage, 'display', 'keep', e.target.value)}
+                      style={{ width: '100%', accentColor: '#f59e0b' }}
+                    />
+                  </div>
+
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '3px' }}>
+                      <span>
+                        하락 {activeStage === 1 && <span style={{ color: '#38bdf8', fontSize: '0.72rem' }}>(1단계 하락 불가 0% 고정)</span>}
+                      </span>
+                      <strong style={{ color: activeStage === 1 ? '#94a3b8' : '#fca5a5' }}>
+                        {activeStage === 1 ? 0 : curStageData.display.downgrade}%
+                      </strong>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={activeStage === 1 ? 0 : curStageData.display.downgrade}
+                      disabled={activeStage === 1}
+                      onChange={(e) => updateStageProb(activeStage, 'display', 'downgrade', e.target.value)}
+                      style={{ width: '100%', accentColor: '#ef4444', opacity: activeStage === 1 ? 0.4 : 1 }}
+                    />
+                  </div>
+
+                  <div style={{ textAlign: 'right', fontSize: '0.8rem', fontWeight: 700, color: activeDispTotal === 100 ? '#6ee7b7' : '#f87171' }}>
+                    표시 합계: {activeDispTotal}% {activeDispTotal === 100 ? '(정상)' : '(100% 필요)'}
+                  </div>
+                </div>
+              </div>
+
+              {/* 실제 (Hidden) */}
+              <div className="glass-panel" style={{ padding: '16px', background: 'rgba(88, 28, 135, 0.2)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#d8b4fe', fontWeight: 800, fontSize: '0.9rem' }}>
+                    <EyeOff className="w-4 h-4 text-purple-300" />
+                    <span>실제 백그라운드 ({activeStage}단계 ➜ {activeStage + 1}단계)</span>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '3px' }}>
+                      <span>실제 성공</span>
+                      <strong style={{ color: '#6ee7b7' }}>{curStageData.hidden.success}%</strong>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={curStageData.hidden.success}
+                      onChange={(e) => updateStageProb(activeStage, 'hidden', 'success', e.target.value)}
+                      style={{ width: '100%', accentColor: '#10b981' }}
+                    />
+                  </div>
+
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '3px' }}>
+                      <span>실제 유지</span>
+                      <strong style={{ color: '#fde68a' }}>{curStageData.hidden.keep}%</strong>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={curStageData.hidden.keep}
+                      onChange={(e) => updateStageProb(activeStage, 'hidden', 'keep', e.target.value)}
+                      style={{ width: '100%', accentColor: '#f59e0b' }}
+                    />
+                  </div>
+
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '3px' }}>
+                      <span>
+                        실제 하락 {activeStage === 1 && <span style={{ color: '#38bdf8', fontSize: '0.72rem' }}>(1단계 하락 불가 0% 고정)</span>}
+                      </span>
+                      <strong style={{ color: activeStage === 1 ? '#94a3b8' : '#fca5a5' }}>
+                        {activeStage === 1 ? 0 : curStageData.hidden.downgrade}%
+                      </strong>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={activeStage === 1 ? 0 : curStageData.hidden.downgrade}
+                      disabled={activeStage === 1}
+                      onChange={(e) => updateStageProb(activeStage, 'hidden', 'downgrade', e.target.value)}
+                      style={{ width: '100%', accentColor: '#ef4444', opacity: activeStage === 1 ? 0.4 : 1 }}
+                    />
+                  </div>
+
+                  <div style={{ textAlign: 'right', fontSize: '0.8rem', fontWeight: 700, color: activeHidTotal === 100 ? '#6ee7b7' : '#f87171' }}>
+                    실제 합계: {activeHidTotal}% {activeHidTotal === 100 ? '(정상)' : '(100% 필요)'}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 전체 4개 단계 요약표 */}
+            <div
+              style={{
+                marginTop: '16px',
+                padding: '12px 14px',
+                background: 'rgba(15, 23, 42, 0.5)',
+                borderRadius: '12px',
+                border: '1px solid rgba(255, 255, 255, 0.08)'
+              }}
+            >
+              <div style={{ fontSize: '0.82rem', fontWeight: 800, color: 'rgba(255, 255, 255, 0.75)', marginBottom: '8px' }}>
+                전체 단계 요약 (클릭하여 해당 단계 바로 수정)
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '8px' }}>
+                {[1, 2, 3, 4].map((s) => {
+                  const sp = stageProbs[s] || DEFAULT_STAGE_PROBABILITIES[s];
+                  const isValid = isStageValid(s);
+                  const isSel = activeStage === s;
+                  return (
+                    <div
+                      key={s}
+                      onClick={() => {
+                        sound.playClick();
+                        setActiveStage(s);
+                      }}
+                      style={{
+                        padding: '8px 10px',
+                        borderRadius: '8px',
+                        background: isSel ? 'rgba(0, 242, 254, 0.12)' : 'rgba(255, 255, 255, 0.03)',
+                        border: `1.5px solid ${isSel ? 'var(--aqua-cyan)' : isValid ? 'rgba(255, 255, 255, 0.1)' : '#f87171'}`,
+                        cursor: 'pointer',
+                        fontSize: '0.75rem'
+                      }}
+                    >
+                      <div style={{ fontWeight: 800, color: '#ffffff', marginBottom: '3px' }}>
+                        {s}단계 ➜ {s + 1}단계 {isValid ? '✓' : '⚠️'}
+                      </div>
+                      <div style={{ color: '#6ee7b7' }}>표시: {sp.display.success}/{sp.display.keep}/{sp.display.downgrade}%</div>
+                      <div style={{ color: '#d8b4fe' }}>실제: {sp.hidden.success}/{sp.hidden.keep}/{sp.hidden.downgrade}%</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 확률 설정 저장 버튼 + 100% 검증 */}
+            <div style={{ marginTop: '18px', paddingTop: '16px', borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>
+              {!isAllStagesValid && (
+                <div style={{ color: '#f87171', fontSize: '0.85rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                  <span>
+                    합계 오류: {invalidStageInfo.join(', ')}의 총합이 100%가 되어야 저장할 수 있습니다.
+                  </span>
+                </div>
+              )}
+
+              {probSaveSuccess && (
+                <div style={{ color: '#6ee7b7', fontSize: '0.85rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>모든 단계의 확률 설정이 정상 저장되었습니다!</span>
+                </div>
+              )}
+
+              <button
+                onClick={handleSaveProbabilities}
+                disabled={!isAllStagesValid}
+                className="btn btn-purple"
+                style={{
+                  padding: '12px 24px',
+                  fontSize: '0.95rem',
+                  opacity: isAllStagesValid ? 1 : 0.45,
+                  cursor: isAllStagesValid ? 'pointer' : 'not-allowed'
+                }}
+              >
+                <Save className="w-4 h-4" />
+                <span>단계별 확률 설정 저장</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ---------------- 2: 순위표 초기화 & 참가자 명부 관리 ---------------- */}

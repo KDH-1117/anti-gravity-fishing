@@ -68,24 +68,19 @@ function AppContent() {
         )}
       </main>
 
-      {/* 하단 푸터 */}
+      {/* 하단 푸터 (깔끔하고 간결하게) */}
       <footer
         style={{
           position: 'relative',
           zIndex: 1,
           textAlign: 'center',
-          padding: '20px 16px',
-          fontSize: '0.8rem',
-          color: 'rgba(255, 255, 255, 0.45)',
-          borderTop: '1px solid rgba(255, 255, 255, 0.08)'
+          padding: '16px',
+          fontSize: '0.75rem',
+          color: 'rgba(255, 255, 255, 0.3)',
+          borderTop: '1px solid rgba(255, 255, 255, 0.05)'
         }}
       >
-        <p>
-          © 2026 학교 축제 1학년 5반 부스 • <strong>안티그래비티(Anti-Gravity) 낚시터</strong>
-        </p>
-        <p style={{ fontSize: '0.75rem', marginTop: '4px', opacity: 0.7 }}>
-          Vercel + Supabase 실시간 연동 시스템
-        </p>
+        <span>1-5 낚시 부스</span>
       </footer>
     </div>
   );

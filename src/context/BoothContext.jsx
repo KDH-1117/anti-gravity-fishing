@@ -15,11 +15,17 @@ import { sound } from '../lib/sound';
 const BoothContext = createContext(null);
 
 const AUTH_KEY = 'fish_booth_auth_session_v1';
+const ADMIN_AUTH_KEY = 'fish_booth_admin_session_v1';
 
 export function BoothProvider({ children }) {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     return localStorage.getItem(AUTH_KEY) === 'authenticated';
   });
+
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(() => {
+    return localStorage.getItem(ADMIN_AUTH_KEY) === 'authenticated';
+  });
+
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [scores, setScores] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -34,7 +40,7 @@ export function BoothProvider({ children }) {
     return '/';
   });
 
-  // 라우트 네비게이션 함수 (HTML5 pushState + hash 지원)
+  // 라우트 네비게이션 함수
   const navigate = (path) => {
     if (typeof window !== 'undefined') {
       window.history.pushState({}, '', path);
@@ -79,7 +85,7 @@ export function BoothProvider({ children }) {
 
     initData();
 
-    // 실시간 리스너 연결 (Supabase Realtime + BroadcastChannel)
+    // 실시간 리스너 연결
     const unsubscribe = subscribeBoothRealtime(
       (newSettings) => {
         if (mounted) setSettings(newSettings);
@@ -95,7 +101,7 @@ export function BoothProvider({ children }) {
     };
   }, []);
 
-  // 인증 로그인
+  // 일반 공통 로그인
   const login = (passwordInput) => {
     const targetPassword = settings?.auth_password || '105fish';
     if (passwordInput === targetPassword) {
@@ -108,10 +114,29 @@ export function BoothProvider({ children }) {
     return false;
   };
 
-  // 로그아웃
+  // 일반 로그아웃
   const logout = () => {
     localStorage.removeItem(AUTH_KEY);
     setIsAuthenticated(false);
+  };
+
+  // 관리자 전용 로그인 (기본: 12345678)
+  const adminLogin = (passwordInput) => {
+    const targetPassword = settings?.admin_password || '12345678';
+    if (passwordInput === targetPassword) {
+      localStorage.setItem(ADMIN_AUTH_KEY, 'authenticated');
+      setIsAdminAuthenticated(true);
+      sound.playSuccess();
+      return true;
+    }
+    sound.playDowngrade();
+    return false;
+  };
+
+  // 관리자 로그아웃
+  const adminLogout = () => {
+    localStorage.removeItem(ADMIN_AUTH_KEY);
+    setIsAdminAuthenticated(false);
   };
 
   // 소리 토글
@@ -128,6 +153,17 @@ export function BoothProvider({ children }) {
     setSettings(prev => ({ ...prev, ...newSettings }));
     const saved = await apiUpdateSettings({ ...settings, ...newSettings });
     return saved;
+  };
+
+  // 수동/주기적 점수 갱신 함수 (폴링용)
+  const refreshScores = async () => {
+    try {
+      const loadedScores = await getScores();
+      setScores(loadedScores);
+      return loadedScores;
+    } catch (e) {
+      console.warn('refreshScores error', e);
+    }
   };
 
   // 참가자 점수 등록
@@ -152,23 +188,15 @@ export function BoothProvider({ children }) {
     await apiResetScores();
   };
 
-  // 수동/주기적 점수 갱신 함수 (폴링용)
-  const refreshScores = async () => {
-    try {
-      const loadedScores = await getScores();
-      setScores(loadedScores);
-      return loadedScores;
-    } catch (e) {
-      console.warn('refreshScores error', e);
-    }
-  };
-
   return (
     <BoothContext.Provider
       value={{
         isAuthenticated,
         login,
         logout,
+        isAdminAuthenticated,
+        adminLogin,
+        adminLogout,
         settings,
         updateBoothSettings,
         scores,

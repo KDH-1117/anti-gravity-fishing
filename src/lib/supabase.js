@@ -11,7 +11,8 @@ export const DEFAULT_SETTINGS = {
   hidden_success: 25,
   hidden_keep: 35,
   hidden_downgrade: 40,
-  auth_password: '105fish'
+  auth_password: '105fish',
+  admin_password: '12345678'
 };
 
 const BROADCAST_CHANNEL_NAME = 'fish_booth_sync_v1';
@@ -21,8 +22,8 @@ const LOCAL_STORAGE_CONFIG_KEY = 'fish_booth_custom_supabase_config';
 
 // Supabase 클라이언트 초기화 함수
 export function getSupabaseCredentials() {
-  const envUrl = import.meta.env.VITE_SUPABASE_URL;
-  const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  const envUrl = import.meta.env.VITE_SUPABASE_URL || 'https://woctlwqxnitskqcddzno.supabase.co';
+  const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndvY3Rsd3F4bml0c2txY2Rkem5vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2NTg0NTcsImV4cCI6MjEwODIzNDQ1N30.GsPkeUafOah1gUzAzfbj0Hi8lkrt-iuotlTqzj8r7HM';
   let custom = null;
   try {
     const raw = localStorage.getItem(LOCAL_STORAGE_CONFIG_KEY);
@@ -31,8 +32,8 @@ export function getSupabaseCredentials() {
     console.warn('Config parse error', e);
   }
 
-  const url = custom?.url || envUrl || '';
-  const key = custom?.key || envKey || '';
+  const url = custom?.url || envUrl;
+  const key = custom?.key || envKey;
   return { url: url.trim(), key: key.trim() };
 }
 
